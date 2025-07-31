@@ -1,99 +1,91 @@
-<p align="center">
-  <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
-</p>
+# Tetris 99 Backend
 
-[circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
-[circleci-url]: https://circleci.com/gh/nestjs/nest
+테트리스 99와 같은 멀티플레이어 테트리스 게임을 위한 NestJS 백엔드입니다.
 
-  <p align="center">A progressive <a href="http://nodejs.org" target="_blank">Node.js</a> framework for building efficient and scalable server-side applications.</p>
-    <p align="center">
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/v/@nestjs/core.svg" alt="NPM Version" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/l/@nestjs/core.svg" alt="Package License" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/dm/@nestjs/common.svg" alt="NPM Downloads" /></a>
-<a href="https://circleci.com/gh/nestjs/nest" target="_blank"><img src="https://img.shields.io/circleci/build/github/nestjs/nest/master" alt="CircleCI" /></a>
-<a href="https://coveralls.io/github/nestjs/nest?branch=master" target="_blank"><img src="https://coveralls.io/repos/github/nestjs/nest/badge.svg?branch=master#9" alt="Coverage" /></a>
-<a href="https://discord.gg/G7Qnnhy" target="_blank"><img src="https://img.shields.io/badge/discord-online-brightgreen.svg" alt="Discord"/></a>
-<a href="https://opencollective.com/nest#backer" target="_blank"><img src="https://opencollective.com/nest/backers/badge.svg" alt="Backers on Open Collective" /></a>
-<a href="https://opencollective.com/nest#sponsor" target="_blank"><img src="https://opencollective.com/nest/sponsors/badge.svg" alt="Sponsors on Open Collective" /></a>
-  <a href="https://paypal.me/kamilmysliwiec" target="_blank"><img src="https://img.shields.io/badge/Donate-PayPal-ff3f59.svg" alt="Donate us"/></a>
-    <a href="https://opencollective.com/nest#sponsor"  target="_blank"><img src="https://img.shields.io/badge/Support%20us-Open%20Collective-41B883.svg" alt="Support us"></a>
-  <a href="https://twitter.com/nestframework" target="_blank"><img src="https://img.shields.io/twitter/follow/nestframework.svg?style=social&label=Follow" alt="Follow us on Twitter"></a>
-</p>
-  <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
-  [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
+## 기능
 
-## Description
+- 실시간 멀티플레이어 게임 (최대 99명)
+- WebSocket을 통한 실시간 통신
+- PostgreSQL 데이터베이스
+- Prisma ORM
+- 게임 상태 관리
+- 플레이어 통계 추적
 
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
-
-## Project setup
+## 설치
 
 ```bash
-$ pnpm install
+# 의존성 설치
+pnpm install
+
+# Prisma 클라이언트 생성
+pnpm run prisma:generate
+
+# 데이터베이스 마이그레이션
+pnpm run prisma:migrate
+
+# 개발 서버 실행
+pnpm run start:dev
 ```
 
-## Compile and run the project
+## 데이터베이스 설정
+
+1. PostgreSQL 데이터베이스를 설치하고 실행합니다.
+2. `.env` 파일에서 데이터베이스 연결 정보를 설정합니다:
+
+```env
+DATABASE_URL="postgresql://username:password@localhost:5432/tetrs?schema=public"
+```
+
+3. 데이터베이스를 생성하고 마이그레이션을 실행합니다:
 
 ```bash
-# development
-$ pnpm run start
-
-# watch mode
-$ pnpm run start:dev
-
-# production mode
-$ pnpm run start:prod
+pnpm run prisma:migrate
 ```
 
-## Run tests
+## API 엔드포인트
 
-```bash
-# unit tests
-$ pnpm run test
+### 게임 관리
 
-# e2e tests
-$ pnpm run test:e2e
+- `POST /games` - 새 게임 생성
+- `GET /games` - 모든 게임 목록 조회
+- `GET /games/:id` - 특정 게임 정보 조회
+- `POST /games/:id/join` - 게임 참가
+- `POST /games/:id/start` - 게임 시작
 
-# test coverage
-$ pnpm run test:cov
-```
+## WebSocket 이벤트
 
-## Deployment
+### 클라이언트 → 서버
 
-When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.
+- `joinGame` - 게임 참가
+- `startGame` - 게임 시작
+- `playerEliminated` - 플레이어 탈락
+- `updateStats` - 플레이어 통계 업데이트
+- `leaveGame` - 게임 나가기
 
-If you are looking for a cloud-based platform to deploy your NestJS application, check out [Mau](https://mau.nestjs.com), our official platform for deploying NestJS applications on AWS. Mau makes deployment straightforward and fast, requiring just a few simple steps:
+### 서버 → 클라이언트
 
-```bash
-$ pnpm install -g mau
-$ mau deploy
-```
+- `playerJoined` - 플레이어 참가 알림
+- `gameStarted` - 게임 시작 알림
+- `playerEliminated` - 플레이어 탈락 알림
+- `statsUpdated` - 통계 업데이트 알림
 
-With Mau, you can deploy your application in just a few clicks, allowing you to focus on building features rather than managing infrastructure.
+## 게임 규칙
 
-## Resources
+1. 최대 99명의 플레이어가 동시에 게임에 참가할 수 있습니다.
+2. 플레이어가 라인을 클리어하면 다른 플레이어들에게 공격 라인이 전송됩니다.
+3. 마지막까지 살아남은 플레이어가 승리합니다.
 
-Check out a few resources that may come in handy when working with NestJS:
+## 기술 스택
 
-- Visit the [NestJS Documentation](https://docs.nestjs.com) to learn more about the framework.
-- For questions and support, please visit our [Discord channel](https://discord.gg/G7Qnnhy).
-- To dive deeper and get more hands-on experience, check out our official video [courses](https://courses.nestjs.com/).
-- Deploy your application to AWS with the help of [NestJS Mau](https://mau.nestjs.com) in just a few clicks.
-- Visualize your application graph and interact with the NestJS application in real-time using [NestJS Devtools](https://devtools.nestjs.com).
-- Need help with your project (part-time to full-time)? Check out our official [enterprise support](https://enterprise.nestjs.com).
-- To stay in the loop and get updates, follow us on [X](https://x.com/nestframework) and [LinkedIn](https://linkedin.com/company/nestjs).
-- Looking for a job, or have a job to offer? Check out our official [Jobs board](https://jobs.nestjs.com).
+- NestJS
+- Prisma ORM
+- PostgreSQL
+- Socket.IO
+- TypeScript
 
-## Support
+## 개발 도구
 
-Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
-
-## Stay in touch
-
-- Author - [Kamil Myśliwiec](https://twitter.com/kammysliwiec)
-- Website - [https://nestjs.com](https://nestjs.com/)
-- Twitter - [@nestframework](https://twitter.com/nestframework)
-
-## License
-
-Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
+- `pnpm run prisma:generate` - Prisma 클라이언트 생성
+- `pnpm run prisma:migrate` - 데이터베이스 마이그레이션
+- `pnpm run prisma:studio` - Prisma Studio 실행 (데이터베이스 GUI)
+- `pnpm run db:push` - 스키마 변경사항을 데이터베이스에 직접 푸시
