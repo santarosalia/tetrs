@@ -12,6 +12,7 @@ import {
   PlayerNotFoundException,
 } from '../common/exceptions/game.exception';
 import { LoggerService } from '../common/services/logger.service';
+import { TetrisMapService } from './tetris-map.service';
 
 @Injectable()
 export class GameService {
@@ -19,6 +20,7 @@ export class GameService {
     private readonly prisma: PrismaService,
     private readonly redisService: RedisService,
     private readonly logger: LoggerService,
+    private readonly tetrisMapService: TetrisMapService,
   ) {}
 
   async createGame(createGameDto: CreateGameDto) {
@@ -265,5 +267,36 @@ export class GameService {
     linesReceived: number,
   ): Promise<void> {
     await this.redisService.updateGameStats(gameId, linesSent, linesReceived);
+  }
+
+  // 테트리스 맵 관련 메서드들
+  async getGameMapState(gameId: string) {
+    return await this.tetrisMapService.getGameMapState(gameId);
+  }
+
+  async getPlayerMap(gameId: string, playerId: string) {
+    return await this.tetrisMapService.getPlayerMap(gameId, playerId);
+  }
+
+  async updatePlayerMap(gameId: string, playerId: string, mapData: any) {
+    await this.tetrisMapService.updatePlayerMap(gameId, playerId, mapData);
+    // 맵 업데이트 후 전체 게임 상태 브로드캐스트
+    await this.tetrisMapService.publishGameMapState(gameId);
+  }
+
+  async initializePlayerMap(
+    gameId: string,
+    playerId: string,
+    playerName: string,
+  ) {
+    await this.tetrisMapService.initializePlayerMap(
+      gameId,
+      playerId,
+      playerName,
+    );
+  }
+
+  async deletePlayerMap(gameId: string, playerId: string) {
+    await this.tetrisMapService.deletePlayerMap(gameId, playerId);
   }
 }

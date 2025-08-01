@@ -13,6 +13,7 @@ import { RedisService } from '../services/redis.service';
 import { JoinGameDto } from '../dto/join-game.dto';
 import { WsException } from '@nestjs/websockets';
 import { LoggerService } from '../common/services/logger.service';
+import { TetrisMapService } from '../services/tetris-map.service';
 
 @WebSocketGateway({
   cors: {
@@ -27,6 +28,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
     private readonly gameService: GameService,
     private readonly redisService: RedisService,
     private readonly logger: LoggerService,
+    private readonly tetrisMapService: TetrisMapService,
   ) {}
 
   handleConnection(client: Socket) {
@@ -181,6 +183,126 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
         success: false,
         error: {
           code: error.code || 'LEAVE_GAME_ERROR',
+          message: error.message,
+        },
+      });
+    }
+  }
+
+  // 테트리스 맵 관련 이벤트들
+  @SubscribeMessage('getGameMapState')
+  async handleGetGameMapState(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() data: { gameId: string },
+  ) {
+    try {
+      const gameMapState = await this.gameService.getGameMapState(data.gameId);
+      return { success: true, data: gameMapState };
+    } catch (error) {
+      throw new WsException({
+        success: false,
+        error: {
+          code: error.code || 'GET_MAP_STATE_ERROR',
+          message: error.message,
+        },
+      });
+    }
+  }
+
+  @SubscribeMessage('updatePlayerMap')
+  async handleUpdatePlayerMap(
+    @ConnectedSocket() client: Socket,
+    @MessageBody()
+    data: {
+      gameId: string;
+      playerId: string;
+      mapData: any;
+    },
+  ) {
+    try {
+      await this.gameService.updatePlayerMap(
+        data.gameId,
+        data.playerId,
+        data.mapData,
+      );
+
+      // 모든 플레이어에게 맵 업데이트 알림
+      this.server.to(data.gameId).emit('playerMapUpdated', {
+        gameId: data.gameId,
+        playerId: data.playerId,
+        timestamp: new Date().toISOString(),
+      });
+
+      return { success: true };
+    } catch (error) {
+      throw new WsException({
+        success: false,
+        error: {
+          code: error.code || 'UPDATE_MAP_ERROR',
+          message: error.message,
+        },
+      });
+    }
+  }
+
+  @SubscribeMessage('initializePlayerMap')
+  async handleInitializePlayerMap(
+    @ConnectedSocket() client: Socket,
+    @MessageBody()
+    data: {
+      gameId: string;
+      playerId: string;
+      playerName: string;
+    },
+  ) {
+    try {
+      await this.gameService.initializePlayerMap(
+        data.gameId,
+        data.playerId,
+        data.playerName,
+      );
+
+      // 모든 플레이어에게 새 플레이어 맵 초기화 알림
+      this.server.to(data.gameId).emit('playerMapInitialized', {
+        gameId: data.gameId,
+        playerId: data.playerId,
+        playerName: data.playerName,
+        timestamp: new Date().toISOString(),
+      });
+
+      return { success: true };
+    } catch (error) {
+      throw new WsException({
+        success: false,
+        error: {
+          code: error.code || 'INITIALIZE_MAP_ERROR',
+          message: error.message,
+        },
+      });
+    }
+  }
+
+  @SubscribeMessage('subscribeToMapUpdates')
+  async handleSubscribeToMapUpdates(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() data: { gameId: string },
+  ) {
+    try {
+      // Redis 구독 설정
+      await this.tetrisMapService.subscribeToMapUpdates(
+        data.gameId,
+        (message) => {
+          // 구독한 클라이언트에게 맵 업데이트 전송
+          this.server.to(data.gameId).emit('mapUpdateReceived', message);
+        },
+      );
+
+      return { success: true };
+    } catch (error) {
+      throw new WsException({
+        success: false,
+        error: {
+          code: error.code || 'SUBSCRIBE_MAP_ERROR',
           message: error.message,
         },
       });

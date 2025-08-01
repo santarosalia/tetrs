@@ -5,6 +5,7 @@ import { GameGateway } from '../gateways/game.gateway';
 import { PrismaService } from '../services/prisma.service';
 import { RedisService } from '../services/redis.service';
 import { LoggerService } from '../common/services/logger.service';
+import { TetrisMapService } from '../services/tetris-map.service';
 
 @Module({
   controllers: [GameController],
@@ -14,6 +15,7 @@ import { LoggerService } from '../common/services/logger.service';
     PrismaService,
     RedisService,
     LoggerService,
+    TetrisMapService,
   ],
   exports: [GameService],
 })

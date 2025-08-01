@@ -79,6 +79,10 @@ REDIS_DB=0
 - `playerEliminated` - 플레이어 탈락
 - `updateStats` - 플레이어 통계 업데이트
 - `leaveGame` - 게임 나가기
+- `getGameMapState` - 게임 맵 상태 조회
+- `updatePlayerMap` - 플레이어 맵 업데이트
+- `initializePlayerMap` - 플레이어 맵 초기화
+- `subscribeToMapUpdates` - 맵 업데이트 구독
 
 ### 서버 → 클라이언트
 
@@ -86,6 +90,9 @@ REDIS_DB=0
 - `gameStarted` - 게임 시작 알림
 - `playerEliminated` - 플레이어 탈락 알림
 - `statsUpdated` - 통계 업데이트 알림
+- `playerMapUpdated` - 플레이어 맵 업데이트 알림
+- `playerMapInitialized` - 플레이어 맵 초기화 알림
+- `mapUpdateReceived` - 맵 업데이트 수신
 
 ## 게임 규칙
 
@@ -181,3 +188,6 @@ REDIS_DB=0
 - `WS_DISCONNECTED` - WebSocket 연결 해제
 - `REDIS_OPERATION` - Redis 작업
 - `DB_OPERATION` - 데이터베이스 작업
+- `TETRIS_MAP_UPDATED` - 테트리스 맵 업데이트
+- `TETRIS_MAP_INITIALIZED` - 테트리스 맵 초기화
+- `TETRIS_MAP_DELETED` - 테트리스 맵 삭제

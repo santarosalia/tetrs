@@ -296,4 +296,9 @@ export class RedisService implements OnModuleDestroy {
       await this.updatePlayer(playerId, updates);
     }
   }
+
+  // Redis 인스턴스 접근자
+  getRedisInstance(): Redis {
+    return this.redis;
+  }
 }
