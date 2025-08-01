@@ -6,7 +6,9 @@
 
 - 실시간 멀티플레이어 게임 (최대 99명)
 - WebSocket을 통한 실시간 통신
-- PostgreSQL 데이터베이스
+- 하이브리드 데이터 저장 (Redis + PostgreSQL)
+- Redis: 실시간 게임 상태 및 세션 관리
+- PostgreSQL: 영속성 데이터 및 통계 저장
 - Prisma ORM
 - 게임 상태 관리
 - 플레이어 통계 추적
@@ -29,6 +31,8 @@ pnpm run start:dev
 
 ## 데이터베이스 설정
 
+### PostgreSQL 설정
+
 1. PostgreSQL 데이터베이스를 설치하고 실행합니다.
 2. `.env` 파일에서 데이터베이스 연결 정보를 설정합니다:
 
@@ -40,6 +44,18 @@ DATABASE_URL="postgresql://username:password@localhost:5432/tetrs?schema=public"
 
 ```bash
 pnpm run prisma:migrate
+```
+
+### Redis 설정
+
+1. Redis 서버를 설치하고 실행합니다.
+2. `.env` 파일에서 Redis 연결 정보를 설정합니다:
+
+```env
+REDIS_HOST=localhost
+REDIS_PORT=6379
+REDIS_PASSWORD=
+REDIS_DB=0
 ```
 
 ## API 엔드포인트
@@ -79,7 +95,8 @@ pnpm run prisma:migrate
 
 - NestJS
 - Prisma ORM
-- PostgreSQL
+- PostgreSQL (영속성 데이터)
+- Redis (실시간 데이터)
 - Socket.IO
 - TypeScript
 
