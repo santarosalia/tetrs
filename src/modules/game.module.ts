@@ -4,6 +4,7 @@ import { GameService } from '../services/game.service';
 import { GameGateway } from '../gateways/game.gateway';
 import { PrismaService } from '../services/prisma.service';
 import { RedisService } from '../services/redis.service';
+import { NetworkSyncService } from '../services/network-sync.service';
 import { LoggerService } from '../common/services/logger.service';
 import { TetrisMapService } from '../services/tetris-map.service';
 
@@ -14,6 +15,7 @@ import { TetrisMapService } from '../services/tetris-map.service';
     GameGateway,
     PrismaService,
     RedisService,
+    NetworkSyncService,
     LoggerService,
     TetrisMapService,
   ],

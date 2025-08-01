@@ -57,7 +57,7 @@ export class RedisService implements OnModuleDestroy {
       updatedAt: now,
     };
 
-    await this.redis.hset(`game:${id}`, game);
+    await this.redis.set(`game:${id}`, JSON.stringify(game));
     await this.redis.sadd('games', id);
     await this.redis.expire(`game:${id}`, 3600); // 1시간 후 만료
 
@@ -67,25 +67,17 @@ export class RedisService implements OnModuleDestroy {
   }
 
   async getGame(gameId: string): Promise<GameState | null> {
-    const gameData = await this.redis.hgetall(`game:${gameId}`);
-    if (!gameData || Object.keys(gameData).length === 0) {
+    const gameData = await this.redis.get(`game:${gameId}`);
+    if (!gameData) {
       return null;
     }
 
-    // 타입 안전성을 위한 변환
-    const game: GameState = {
-      id: gameData.id,
-      status: gameData.status as GameState['status'],
-      maxPlayers: parseInt(gameData.maxPlayers),
-      currentPlayers: parseInt(gameData.currentPlayers),
-      linesSent: parseInt(gameData.linesSent),
-      linesReceived: parseInt(gameData.linesReceived),
-      winnerId: gameData.winnerId || undefined,
-      createdAt: gameData.createdAt,
-      updatedAt: gameData.updatedAt,
-    };
-
-    return game;
+    try {
+      return JSON.parse(gameData) as GameState;
+    } catch (error) {
+      this.logger.error('Failed to parse game data', error.stack, { gameId });
+      return null;
+    }
   }
 
   async updateGame(
@@ -101,7 +93,7 @@ export class RedisService implements OnModuleDestroy {
       updatedAt: new Date().toISOString(),
     };
 
-    await this.redis.hset(`game:${gameId}`, updatedGame);
+    await this.redis.set(`game:${gameId}`, JSON.stringify(updatedGame));
     return updatedGame;
   }
 
@@ -137,7 +129,7 @@ export class RedisService implements OnModuleDestroy {
       updatedAt: now,
     };
 
-    await this.redis.hset(`player:${id}`, player);
+    await this.redis.set(`player:${id}`, JSON.stringify(player));
     if (player.gameId) {
       await this.redis.sadd(`game:${player.gameId}:players`, id);
     }
@@ -148,26 +140,19 @@ export class RedisService implements OnModuleDestroy {
   }
 
   async getPlayer(playerId: string): Promise<PlayerState | null> {
-    const playerData = await this.redis.hgetall(`player:${playerId}`);
-    if (!playerData || Object.keys(playerData).length === 0) {
+    const playerData = await this.redis.get(`player:${playerId}`);
+    if (!playerData) {
       return null;
     }
 
-    // 타입 안전성을 위한 변환
-    const player: PlayerState = {
-      id: playerData.id,
-      name: playerData.name,
-      socketId: playerData.socketId,
-      status: playerData.status as PlayerState['status'],
-      score: parseInt(playerData.score),
-      linesCleared: parseInt(playerData.linesCleared),
-      level: parseInt(playerData.level),
-      gameId: playerData.gameId || undefined,
-      createdAt: playerData.createdAt,
-      updatedAt: playerData.updatedAt,
-    };
-
-    return player;
+    try {
+      return JSON.parse(playerData) as PlayerState;
+    } catch (error) {
+      this.logger.error('Failed to parse player data', error.stack, {
+        playerId,
+      });
+      return null;
+    }
   }
 
   async updatePlayer(
@@ -183,7 +168,7 @@ export class RedisService implements OnModuleDestroy {
       updatedAt: new Date().toISOString(),
     };
 
-    await this.redis.hset(`player:${playerId}`, updatedPlayer);
+    await this.redis.set(`player:${playerId}`, JSON.stringify(updatedPlayer));
     return updatedPlayer;
   }
 

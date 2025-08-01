@@ -10,10 +10,22 @@ import {
 import { Server, Socket } from 'socket.io';
 import { GameService } from '../services/game.service';
 import { RedisService } from '../services/redis.service';
+import { NetworkSyncService } from '../services/network-sync.service';
 import { JoinGameDto } from '../dto/join-game.dto';
 import { WsException } from '@nestjs/websockets';
 import { LoggerService } from '../common/services/logger.service';
 import { TetrisMapService } from '../services/tetris-map.service';
+import {
+  NetworkMessage,
+  JoinGameMessage,
+  MatchReadyMessage,
+  InputEventMessage,
+  PingMessage,
+  SnapshotRequestMessage,
+  AckMessage,
+  KeepaliveMessage,
+  DesyncReportMessage,
+} from '../common/interfaces/network-message.interface';
 
 @WebSocketGateway({
   cors: {
@@ -27,6 +39,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
   constructor(
     private readonly gameService: GameService,
     private readonly redisService: RedisService,
+    private readonly networkSyncService: NetworkSyncService,
     private readonly logger: LoggerService,
     private readonly tetrisMapService: TetrisMapService,
   ) {}
@@ -43,6 +56,223 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
       ip: client.handshake.address,
     });
   }
+
+  // 새로운 네트워크 통신 프로토콜 메시지 핸들러들
+
+  @SubscribeMessage('join_game')
+  async handleJoinGameProtocol(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() data: JoinGameMessage,
+  ) {
+    try {
+      const { playerId, clientVersion, preferredSeed } = data;
+
+      // 클라이언트 상태 초기화
+      this.networkSyncService.initializeClientState(playerId, 'temp_game_id');
+
+      // 게임 참여 처리
+      const joinGameDto: JoinGameDto = {
+        name: playerId,
+        socketId: client.id,
+      };
+
+      const player = await this.gameService.joinGame(
+        'temp_game_id',
+        joinGameDto,
+      );
+
+      // 게임 룸에 참여
+      client.join('temp_game_id');
+
+      // 서버 응답: 공유 시드, 게임 설정 등
+      const response = {
+        type: 'join_game_response',
+        playerId,
+        sharedSeed: Math.floor(Math.random() * 1000000),
+        garbageSyncSeed: Math.floor(Math.random() * 1000000),
+        gameSettings: {
+          tickRate: 60,
+          gravity: 1,
+          dropDelay: 1000,
+        },
+        player,
+      };
+
+      return response;
+    } catch (error) {
+      throw new WsException({
+        success: false,
+        error: {
+          code: error.code || 'JOIN_GAME_ERROR',
+          message: error.message,
+        },
+      });
+    }
+  }
+
+  @SubscribeMessage('match_ready')
+  async handleMatchReady(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() data: MatchReadyMessage,
+  ) {
+    try {
+      const { playerId, clientVersion, preferredSeed } = data;
+
+      // 매치 준비 완료 처리
+      this.logger.log(`Player ${playerId} is ready for match`, {
+        playerId,
+        clientVersion,
+        preferredSeed,
+      });
+
+      // 다른 플레이어들에게 매치 준비 완료 알림
+      client.broadcast.to('temp_game_id').emit('player_ready', {
+        playerId,
+        timestamp: Date.now(),
+      });
+
+      return { success: true, playerId };
+    } catch (error) {
+      throw new WsException({
+        success: false,
+        error: {
+          code: error.code || 'MATCH_READY_ERROR',
+          message: error.message,
+        },
+      });
+    }
+  }
+
+  @SubscribeMessage('input_event')
+  async handleInputEvent(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() data: InputEventMessage,
+  ) {
+    try {
+      const { playerId, seq, actions, currentPieceId, expectedDropTick } = data;
+
+      // 입력 이벤트 처리
+      const success = await this.networkSyncService.handleInputEvent(data);
+
+      if (success) {
+        // 다른 플레이어들에게 입력 이벤트 브로드캐스트
+        client.broadcast.to('temp_game_id').emit('input_event_received', {
+          playerId,
+          seq,
+          actions,
+          timestamp: Date.now(),
+        });
+      }
+
+      return { success, seq };
+    } catch (error) {
+      throw new WsException({
+        success: false,
+        error: {
+          code: error.code || 'INPUT_EVENT_ERROR',
+          message: error.message,
+        },
+      });
+    }
+  }
+
+  @SubscribeMessage('ping')
+  async handlePing(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() data: PingMessage,
+  ) {
+    try {
+      const pongMessage = await this.networkSyncService.handlePing(data);
+      return pongMessage;
+    } catch (error) {
+      throw new WsException({
+        success: false,
+        error: {
+          code: error.code || 'PING_ERROR',
+          message: error.message,
+        },
+      });
+    }
+  }
+
+  @SubscribeMessage('snapshot_request')
+  async handleSnapshotRequest(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() data: SnapshotRequestMessage,
+  ) {
+    try {
+      const snapshotMessage =
+        await this.networkSyncService.handleSnapshotRequest(data);
+      return snapshotMessage;
+    } catch (error) {
+      throw new WsException({
+        success: false,
+        error: {
+          code: error.code || 'SNAPSHOT_REQUEST_ERROR',
+          message: error.message,
+        },
+      });
+    }
+  }
+
+  @SubscribeMessage('ack')
+  async handleAck(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() data: AckMessage,
+  ) {
+    try {
+      await this.networkSyncService.handleAck(data);
+      return { success: true };
+    } catch (error) {
+      throw new WsException({
+        success: false,
+        error: {
+          code: error.code || 'ACK_ERROR',
+          message: error.message,
+        },
+      });
+    }
+  }
+
+  @SubscribeMessage('keepalive')
+  async handleKeepalive(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() data: KeepaliveMessage,
+  ) {
+    try {
+      await this.networkSyncService.handleKeepalive(data);
+      return { success: true };
+    } catch (error) {
+      throw new WsException({
+        success: false,
+        error: {
+          code: error.code || 'KEEPALIVE_ERROR',
+          message: error.message,
+        },
+      });
+    }
+  }
+
+  @SubscribeMessage('desync_report')
+  async handleDesyncReport(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() data: DesyncReportMessage,
+  ) {
+    try {
+      await this.networkSyncService.handleDesyncReport(data);
+      return { success: true };
+    } catch (error) {
+      throw new WsException({
+        success: false,
+        error: {
+          code: error.code || 'DESYNC_REPORT_ERROR',
+          message: error.message,
+        },
+      });
+    }
+  }
+
+  // 기존 메시지 핸들러들 (하위 호환성 유지)
 
   @SubscribeMessage('joinGame')
   async handleJoinGame(
@@ -173,6 +403,9 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
   ) {
     try {
       await this.gameService.leaveGame(data.playerId);
+
+      // 클라이언트 상태 정리
+      this.networkSyncService.cleanupClientState(data.playerId);
 
       // Leave the game room
       client.leave(data.playerId);
