@@ -12,6 +12,7 @@
 - Prisma ORM
 - 게임 상태 관리
 - 플레이어 통계 추적
+- 통합된 에러 처리 시스템
 
 ## 설치
 
@@ -99,6 +100,7 @@ REDIS_DB=0
 - Redis (실시간 데이터)
 - Socket.IO
 - TypeScript
+- 전역 예외 필터
 
 ## 개발 도구
 
@@ -106,3 +108,44 @@ REDIS_DB=0
 - `pnpm run prisma:migrate` - 데이터베이스 마이그레이션
 - `pnpm run prisma:studio` - Prisma Studio 실행 (데이터베이스 GUI)
 - `pnpm run db:push` - 스키마 변경사항을 데이터베이스에 직접 푸시
+- `pnpm run redis:start` - Redis 서버 시작
+- `pnpm run redis:cli` - Redis CLI 실행
+
+## 에러 처리
+
+### HTTP API 에러 응답 형식
+
+```json
+{
+  "success": false,
+  "error": {
+    "code": "GAME_NOT_FOUND",
+    "message": "Game with ID abc123 not found",
+    "details": null
+  },
+  "timestamp": "2024-01-01T00:00:00.000Z",
+  "path": "/games/abc123"
+}
+```
+
+### WebSocket 에러 응답 형식
+
+```json
+{
+  "success": false,
+  "error": {
+    "code": "JOIN_GAME_ERROR",
+    "message": "Game is full"
+  }
+}
+```
+
+### 주요 에러 코드
+
+- `GAME_NOT_FOUND` - 게임을 찾을 수 없음
+- `GAME_NOT_ACCEPTING_PLAYERS` - 게임이 플레이어를 받지 않음
+- `GAME_FULL` - 게임이 가득 참
+- `GAME_CANNOT_START` - 게임을 시작할 수 없음
+- `PLAYER_NOT_FOUND` - 플레이어를 찾을 수 없음
+- `VALIDATION_ERROR` - 입력 데이터 검증 실패
+- `INTERNAL_SERVER_ERROR` - 서버 내부 오류

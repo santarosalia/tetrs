@@ -4,6 +4,13 @@ import { RedisService } from './redis.service';
 import { CreateGameDto } from '../dto/create-game.dto';
 import { JoinGameDto } from '../dto/join-game.dto';
 import { GameStatus, PlayerStatus } from '@prisma/client';
+import {
+  GameNotFoundException,
+  GameNotAcceptingPlayersException,
+  GameFullException,
+  GameCannotStartException,
+  PlayerNotFoundException,
+} from '../common/exceptions/game.exception';
 
 @Injectable()
 export class GameService {
@@ -39,15 +46,15 @@ export class GameService {
     // Redis에서 게임 상태 확인
     const game = await this.redisService.getGame(gameId);
     if (!game) {
-      throw new Error('Game not found');
+      throw new GameNotFoundException(gameId);
     }
 
     if (game.status !== 'WAITING') {
-      throw new Error('Game is not accepting players');
+      throw new GameNotAcceptingPlayersException(gameId);
     }
 
     if (game.currentPlayers >= game.maxPlayers) {
-      throw new Error('Game is full');
+      throw new GameFullException(gameId);
     }
 
     // Redis에 플레이어 생성
@@ -82,7 +89,7 @@ export class GameService {
     // Redis에서 실시간 게임 상태 가져오기
     const game = await this.redisService.getGame(gameId);
     if (!game) {
-      throw new Error('Game not found');
+      throw new GameNotFoundException(gameId);
     }
 
     // Redis에서 플레이어 목록 가져오기
@@ -112,10 +119,10 @@ export class GameService {
   async startGame(gameId: string) {
     const game = await this.getGame(gameId);
     if (game.status !== 'WAITING') {
-      throw new Error('Game cannot be started');
+      throw new GameCannotStartException('Game is not in waiting state');
     }
     if (game.currentPlayers < 2) {
-      throw new Error('Need at least 2 players to start');
+      throw new GameCannotStartException('Need at least 2 players to start');
     }
 
     // Redis 게임 상태 업데이트
@@ -133,7 +140,7 @@ export class GameService {
   async eliminatePlayer(playerId: string) {
     const player = await this.redisService.getPlayer(playerId);
     if (!player) {
-      throw new Error('Player not found');
+      throw new PlayerNotFoundException(playerId);
     }
 
     // Redis 플레이어 상태 업데이트
@@ -183,7 +190,7 @@ export class GameService {
   ) {
     const player = await this.redisService.getPlayer(playerId);
     if (!player) {
-      throw new Error('Player not found');
+      throw new PlayerNotFoundException(playerId);
     }
 
     // Redis 플레이어 통계 업데이트
@@ -201,7 +208,7 @@ export class GameService {
   async leaveGame(playerId: string): Promise<void> {
     const player = await this.redisService.getPlayer(playerId);
     if (!player) {
-      throw new Error('Player not found');
+      throw new PlayerNotFoundException(playerId);
     }
 
     // Redis에서 플레이어 삭제

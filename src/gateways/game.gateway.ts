@@ -11,6 +11,7 @@ import { Server, Socket } from 'socket.io';
 import { GameService } from '../services/game.service';
 import { RedisService } from '../services/redis.service';
 import { JoinGameDto } from '../dto/join-game.dto';
+import { WsException } from '@nestjs/websockets';
 
 @WebSocketGateway({
   cors: {
@@ -58,7 +59,13 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
       return { success: true, player };
     } catch (error) {
-      return { success: false, error: error.message };
+      throw new WsException({
+        success: false,
+        error: {
+          code: error.code || 'JOIN_GAME_ERROR',
+          message: error.message,
+        },
+      });
     }
   }
 
@@ -78,7 +85,13 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
       return { success: true, game };
     } catch (error) {
-      return { success: false, error: error.message };
+      throw new WsException({
+        success: false,
+        error: {
+          code: error.code || 'START_GAME_ERROR',
+          message: error.message,
+        },
+      });
     }
   }
 
@@ -98,7 +111,13 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
       return { success: true, player };
     } catch (error) {
-      return { success: false, error: error.message };
+      throw new WsException({
+        success: false,
+        error: {
+          code: error.code || 'PLAYER_ELIMINATED_ERROR',
+          message: error.message,
+        },
+      });
     }
   }
 
@@ -128,7 +147,13 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
       return { success: true, player };
     } catch (error) {
-      return { success: false, error: error.message };
+      throw new WsException({
+        success: false,
+        error: {
+          code: error.code || 'UPDATE_STATS_ERROR',
+          message: error.message,
+        },
+      });
     }
   }
 
@@ -145,7 +170,13 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
       return { success: true };
     } catch (error) {
-      return { success: false, error: error.message };
+      throw new WsException({
+        success: false,
+        error: {
+          code: error.code || 'LEAVE_GAME_ERROR',
+          message: error.message,
+        },
+      });
     }
   }
 }

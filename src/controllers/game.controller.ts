@@ -1,12 +1,4 @@
-import {
-  Controller,
-  Get,
-  Post,
-  Body,
-  Param,
-  HttpException,
-  HttpStatus,
-} from '@nestjs/common';
+import { Controller, Get, Post, Body, Param } from '@nestjs/common';
 import { GameService } from '../services/game.service';
 import { CreateGameDto } from '../dto/create-game.dto';
 import { JoinGameDto } from '../dto/join-game.dto';
@@ -17,29 +9,32 @@ export class GameController {
 
   @Post()
   async createGame(@Body() createGameDto: CreateGameDto) {
-    try {
-      return await this.gameService.createGame(createGameDto);
-    } catch (error) {
-      throw new HttpException(error.message, HttpStatus.BAD_REQUEST);
-    }
+    const game = await this.gameService.createGame(createGameDto);
+    return {
+      success: true,
+      data: game,
+      timestamp: new Date().toISOString(),
+    };
   }
 
   @Get()
   async getAllGames() {
-    try {
-      return await this.gameService.getAllGames();
-    } catch (error) {
-      throw new HttpException(error.message, HttpStatus.INTERNAL_SERVER_ERROR);
-    }
+    const games = await this.gameService.getAllGames();
+    return {
+      success: true,
+      data: games,
+      timestamp: new Date().toISOString(),
+    };
   }
 
   @Get(':id')
   async getGame(@Param('id') id: string) {
-    try {
-      return await this.gameService.getGame(id);
-    } catch (error) {
-      throw new HttpException(error.message, HttpStatus.NOT_FOUND);
-    }
+    const game = await this.gameService.getGame(id);
+    return {
+      success: true,
+      data: game,
+      timestamp: new Date().toISOString(),
+    };
   }
 
   @Post(':id/join')
@@ -47,19 +42,21 @@ export class GameController {
     @Param('id') gameId: string,
     @Body() joinGameDto: JoinGameDto,
   ) {
-    try {
-      return await this.gameService.joinGame(gameId, joinGameDto);
-    } catch (error) {
-      throw new HttpException(error.message, HttpStatus.BAD_REQUEST);
-    }
+    const player = await this.gameService.joinGame(gameId, joinGameDto);
+    return {
+      success: true,
+      data: player,
+      timestamp: new Date().toISOString(),
+    };
   }
 
   @Post(':id/start')
   async startGame(@Param('id') gameId: string) {
-    try {
-      return await this.gameService.startGame(gameId);
-    } catch (error) {
-      throw new HttpException(error.message, HttpStatus.BAD_REQUEST);
-    }
+    const game = await this.gameService.startGame(gameId);
+    return {
+      success: true,
+      data: game,
+      timestamp: new Date().toISOString(),
+    };
   }
 }
