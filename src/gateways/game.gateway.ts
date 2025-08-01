@@ -12,6 +12,7 @@ import { GameService } from '../services/game.service';
 import { RedisService } from '../services/redis.service';
 import { JoinGameDto } from '../dto/join-game.dto';
 import { WsException } from '@nestjs/websockets';
+import { LoggerService } from '../common/services/logger.service';
 
 @WebSocketGateway({
   cors: {
@@ -25,14 +26,20 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
   constructor(
     private readonly gameService: GameService,
     private readonly redisService: RedisService,
+    private readonly logger: LoggerService,
   ) {}
 
   handleConnection(client: Socket) {
-    console.log(`Client connected: ${client.id}`);
+    this.logger.logWebSocketConnection(client.id, {
+      ip: client.handshake.address,
+      userAgent: client.handshake.headers['user-agent'],
+    });
   }
 
   handleDisconnect(client: Socket) {
-    console.log(`Client disconnected: ${client.id}`);
+    this.logger.logWebSocketDisconnection(client.id, {
+      ip: client.handshake.address,
+    });
   }
 
   @SubscribeMessage('joinGame')

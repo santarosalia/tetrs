@@ -1,5 +1,6 @@
 import { Injectable, OnModuleDestroy } from '@nestjs/common';
 import Redis from 'ioredis';
+import { LoggerService } from '../common/services/logger.service';
 
 export interface GameState {
   id: string;
@@ -30,7 +31,7 @@ export interface PlayerState {
 export class RedisService implements OnModuleDestroy {
   private readonly redis: Redis;
 
-  constructor() {
+  constructor(private readonly logger: LoggerService) {
     this.redis = new Redis({
       host: process.env.REDIS_HOST || 'localhost',
       port: parseInt(process.env.REDIS_PORT || '6379'),
@@ -59,6 +60,8 @@ export class RedisService implements OnModuleDestroy {
     await this.redis.hset(`game:${id}`, game);
     await this.redis.sadd('games', id);
     await this.redis.expire(`game:${id}`, 3600); // 1시간 후 만료
+
+    this.logger.logRedisOperation('CREATE', `game:${id}`);
 
     return game;
   }

@@ -11,12 +11,14 @@ import {
   GameCannotStartException,
   PlayerNotFoundException,
 } from '../common/exceptions/game.exception';
+import { LoggerService } from '../common/services/logger.service';
 
 @Injectable()
 export class GameService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly redisService: RedisService,
+    private readonly logger: LoggerService,
   ) {}
 
   async createGame(createGameDto: CreateGameDto) {
@@ -38,6 +40,8 @@ export class GameService {
         currentPlayers: 0,
       },
     });
+
+    this.logger.logGameCreated(redisGame.id, redisGame.maxPlayers);
 
     return redisGame;
   }
@@ -81,6 +85,8 @@ export class GameService {
         status: PlayerStatus.ALIVE,
       },
     });
+
+    this.logger.logGameJoined(gameId, player.id, player.name);
 
     return player;
   }
@@ -134,6 +140,8 @@ export class GameService {
       data: { status: GameStatus.PLAYING },
     });
 
+    this.logger.logGameStarted(gameId, game.currentPlayers);
+
     return await this.redisService.getGame(gameId);
   }
 
@@ -151,6 +159,8 @@ export class GameService {
       where: { id: playerId },
       data: { status: PlayerStatus.ELIMINATED },
     });
+
+    this.logger.logPlayerEliminated(player.gameId!, playerId, player.name);
 
     // 게임 종료 조건 확인
     const alivePlayers = (
@@ -175,6 +185,8 @@ export class GameService {
           winnerId: updateData.winnerId,
         },
       });
+
+      this.logger.logGameFinished(player.gameId!, updateData.winnerId);
     }
 
     return await this.redisService.getPlayer(playerId);
@@ -201,6 +213,8 @@ export class GameService {
       where: { id: playerId },
       data: stats,
     });
+
+    this.logger.logStatsUpdated(playerId, player.gameId!, stats);
 
     return await this.redisService.getPlayer(playerId);
   }
@@ -231,6 +245,8 @@ export class GameService {
         data: { currentPlayers: { decrement: 1 } },
       });
     }
+
+    this.logger.logPlayerLeft(player.gameId!, playerId, player.name);
   }
 
   // 실시간 게임 이벤트 발행

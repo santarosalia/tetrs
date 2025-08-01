@@ -13,6 +13,7 @@
 - 게임 상태 관리
 - 플레이어 통계 추적
 - 통합된 에러 처리 시스템
+- 구조화된 로깅 시스템
 
 ## 설치
 
@@ -101,6 +102,7 @@ REDIS_DB=0
 - Socket.IO
 - TypeScript
 - 전역 예외 필터
+- 구조화된 로깅
 
 ## 개발 도구
 
@@ -149,3 +151,33 @@ REDIS_DB=0
 - `PLAYER_NOT_FOUND` - 플레이어를 찾을 수 없음
 - `VALIDATION_ERROR` - 입력 데이터 검증 실패
 - `INTERNAL_SERVER_ERROR` - 서버 내부 오류
+
+## 로깅 시스템
+
+### 로그 레벨
+
+- `log` - 일반 정보 로그
+- `error` - 에러 로그
+- `warn` - 경고 로그
+- `debug` - 디버그 로그
+- `verbose` - 상세 로그
+
+### 로그 형식
+
+```
+[Timestamp] [LogLevel] [Context] Message | key1=value1 key2=value2
+```
+
+### 주요 로그 이벤트
+
+- `GAME_CREATED` - 게임 생성
+- `GAME_JOINED` - 플레이어 게임 참가
+- `GAME_STARTED` - 게임 시작
+- `GAME_FINISHED` - 게임 종료
+- `PLAYER_ELIMINATED` - 플레이어 탈락
+- `PLAYER_LEFT` - 플레이어 퇴장
+- `STATS_UPDATED` - 통계 업데이트
+- `WS_CONNECTED` - WebSocket 연결
+- `WS_DISCONNECTED` - WebSocket 연결 해제
+- `REDIS_OPERATION` - Redis 작업
+- `DB_OPERATION` - 데이터베이스 작업
