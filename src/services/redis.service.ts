@@ -44,6 +44,31 @@ export class RedisService implements OnModuleDestroy {
     await this.redis.quit();
   }
 
+  // 기본 Redis 메서드들
+  async set(key: string, value: string): Promise<void> {
+    await this.redis.set(key, value);
+  }
+
+  async get(key: string): Promise<string | null> {
+    return await this.redis.get(key);
+  }
+
+  async del(key: string): Promise<void> {
+    await this.redis.del(key);
+  }
+
+  async sadd(key: string, member: string): Promise<void> {
+    await this.redis.sadd(key, member);
+  }
+
+  async srem(key: string, member: string): Promise<void> {
+    await this.redis.srem(key, member);
+  }
+
+  async smembers(key: string): Promise<string[]> {
+    return await this.redis.smembers(key);
+  }
+
   // 게임 관련 메서드들
   async createGame(
     gameData: Omit<GameState, 'id' | 'createdAt' | 'updatedAt'>,

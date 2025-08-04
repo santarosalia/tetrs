@@ -1,9 +1,11 @@
 import { Injectable } from '@nestjs/common';
 import { RedisService } from './redis.service';
 import { LoggerService } from '../common/services/logger.service';
+import { TetrisLogicService } from './tetris-logic.service';
 import {
   TetrisMap,
   GameMapState,
+  TetrisBlock,
 } from '../common/interfaces/tetris-map.interface';
 
 @Injectable()
@@ -11,6 +13,7 @@ export class TetrisMapService {
   constructor(
     private readonly redisService: RedisService,
     private readonly logger: LoggerService,
+    private readonly tetrisLogic: TetrisLogicService,
   ) {}
 
   // 게임의 모든 플레이어 맵 상태 가져오기
@@ -58,11 +61,22 @@ export class TetrisMapService {
         ? JSON.parse(mapData.currentPiece)
         : undefined,
       nextPiece: mapData.nextPiece ? JSON.parse(mapData.nextPiece) : undefined,
+      heldPiece: mapData.heldPiece ? JSON.parse(mapData.heldPiece) : null,
+      canHold: mapData.canHold === 'true',
+      ghostPiece: mapData.ghostPiece
+        ? JSON.parse(mapData.ghostPiece)
+        : undefined,
       score: parseInt(mapData.score),
       linesCleared: parseInt(mapData.linesCleared),
       level: parseInt(mapData.level),
       gameOver: mapData.gameOver === 'true',
+      paused: mapData.paused === 'true',
+      isGameStarted: mapData.isGameStarted === 'true',
       lastUpdated: mapData.lastUpdated,
+      tetrominoBag: mapData.tetrominoBag
+        ? JSON.parse(mapData.tetrominoBag)
+        : undefined,
+      bagIndex: mapData.bagIndex ? parseInt(mapData.bagIndex) : undefined,
     };
   }
 
@@ -93,11 +107,24 @@ export class TetrisMapService {
         nextPiece: updatedMap.nextPiece
           ? JSON.stringify(updatedMap.nextPiece)
           : '',
+        heldPiece: updatedMap.heldPiece
+          ? JSON.stringify(updatedMap.heldPiece)
+          : '',
+        canHold: updatedMap.canHold.toString(),
+        ghostPiece: updatedMap.ghostPiece
+          ? JSON.stringify(updatedMap.ghostPiece)
+          : '',
         score: updatedMap.score.toString(),
         linesCleared: updatedMap.linesCleared.toString(),
         level: updatedMap.level.toString(),
         gameOver: updatedMap.gameOver.toString(),
+        paused: updatedMap.paused.toString(),
+        isGameStarted: updatedMap.isGameStarted.toString(),
         lastUpdated: updatedMap.lastUpdated,
+        tetrominoBag: updatedMap.tetrominoBag
+          ? JSON.stringify(updatedMap.tetrominoBag)
+          : '',
+        bagIndex: updatedMap.bagIndex?.toString() || '',
       });
 
     // 만료 시간 설정 (1시간)
@@ -118,19 +145,29 @@ export class TetrisMapService {
     playerId: string,
     playerName: string,
   ): Promise<void> {
+    // 7-bag 시스템 초기화
+    this.tetrisLogic.initializeTetrominoBag();
+
     const initialMap: TetrisMap = {
       playerId,
       playerName,
       width: 10,
       height: 20,
-      grid: Array(20)
-        .fill(null)
-        .map(() => Array(10).fill(0)),
+      grid: this.tetrisLogic.createEmptyBoard(),
+      currentPiece: undefined,
+      nextPiece: this.tetrisLogic.getNextTetrominoFromBag(),
+      heldPiece: null,
+      canHold: true,
+      ghostPiece: undefined,
       score: 0,
       linesCleared: 0,
       level: 1,
       gameOver: false,
+      paused: false,
+      isGameStarted: false,
       lastUpdated: new Date().toISOString(),
+      tetrominoBag: this.tetrisLogic['tetrominoBag'],
+      bagIndex: this.tetrisLogic['bagIndex'],
     };
 
     await this.updatePlayerMap(gameId, playerId, initialMap);
@@ -203,5 +240,77 @@ export class TetrisMapService {
     callback: (data: any) => void,
   ): Promise<void> {
     await this.redisService.subscribe(`tetris:${gameId}`, callback);
+  }
+
+  // 새로운 테트로미노 생성
+  spawnNewPiece(): TetrisBlock | null {
+    const nextPieceType = this.tetrisLogic.getNextTetrominoFromBag();
+    return this.tetrisLogic.createTetromino(nextPieceType);
+  }
+
+  // 테트로미노 이동
+  movePiece(
+    currentPiece: TetrisBlock,
+    board: number[][],
+    offsetX: number,
+    offsetY: number,
+  ): TetrisBlock | null {
+    return this.tetrisLogic.moveTetromino(
+      currentPiece,
+      board,
+      offsetX,
+      offsetY,
+    );
+  }
+
+  // 테트로미노 회전 (벽킥 포함)
+  rotatePiece(
+    currentPiece: TetrisBlock,
+    board: number[][],
+  ): TetrisBlock | null {
+    return this.tetrisLogic.rotateTetrominoWithWallKick(currentPiece, board);
+  }
+
+  // 하드 드롭
+  hardDrop(
+    currentPiece: TetrisBlock,
+    board: number[][],
+  ): { droppedPiece: TetrisBlock; dropDistance: number } {
+    const originalY = currentPiece.position.y;
+    const droppedPiece = this.tetrisLogic.dropTetromino(currentPiece, board);
+    const dropDistance = droppedPiece.position.y - originalY;
+
+    return { droppedPiece, dropDistance };
+  }
+
+  // 라인 클리어 및 점수 계산
+  clearLinesAndCalculateScore(
+    board: number[][],
+    level: number,
+  ): { newBoard: number[][]; linesCleared: number; score: number } {
+    const { newBoard, linesCleared } = this.tetrisLogic.clearLines(board);
+    const score = this.tetrisLogic.calculateScore(linesCleared, level);
+
+    return { newBoard, linesCleared, score };
+  }
+
+  // 고스트 피스 계산
+  getGhostPiece(currentPiece: TetrisBlock, board: number[][]): TetrisBlock {
+    return this.tetrisLogic.getGhostPiece(currentPiece, board);
+  }
+
+  // 게임 오버 체크
+  isGameOver(board: number[][]): boolean {
+    return this.tetrisLogic.isGameOver(board);
+  }
+
+  // 레벨 계산
+  calculateLevel(lines: number): number {
+    return this.tetrisLogic.calculateLevel(lines);
+  }
+
+  // 드롭 간격 계산
+  calculateDropInterval(level: number, distanceToBottom: number = 0): number {
+    return this.tetrisLogic.calculateDropInterval(level, distanceToBottom);
   }
 }

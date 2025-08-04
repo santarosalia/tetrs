@@ -83,6 +83,44 @@
         font-size: 12px;
       }
 
+      .room-info {
+        background: #e3f2fd;
+        padding: 15px;
+        border-radius: 8px;
+        margin-bottom: 20px;
+        border-left: 4px solid #2196f3;
+      }
+
+      .room-info h4 {
+        color: #1976d2;
+        margin-bottom: 10px;
+      }
+
+      .room-info p {
+        margin: 5px 0;
+        font-family: monospace;
+        font-size: 12px;
+      }
+
+      .game-info {
+        background: #fff3cd;
+        padding: 15px;
+        border-radius: 8px;
+        margin-bottom: 20px;
+        border-left: 4px solid #ffc107;
+      }
+
+      .game-info h4 {
+        color: #856404;
+        margin-bottom: 10px;
+      }
+
+      .game-info p {
+        margin: 5px 0;
+        font-family: monospace;
+        font-size: 12px;
+      }
+
       .main-controls {
         display: grid;
         grid-template-columns: 1fr 1fr;
@@ -182,6 +220,7 @@
         border: 3px solid #333;
         border-radius: 8px;
         padding: 10px;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
       }
 
       .board-title {
@@ -189,6 +228,8 @@
         text-align: center;
         margin-bottom: 10px;
         font-size: 1.1em;
+        font-weight: bold;
+        text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
       }
 
       .board-grid {
@@ -198,6 +239,7 @@
         background: #333;
         padding: 5px;
         border-radius: 5px;
+        border: 2px solid #555;
       }
 
       .cell {
@@ -205,21 +247,49 @@
         height: 20px;
         background: #000;
         border: 1px solid #333;
+        transition: all 0.2s ease;
+        position: relative;
       }
 
       .cell.filled {
-        background: #667eea;
+        background: linear-gradient(45deg, #667eea, #764ba2);
         border-color: #5a6fd8;
+        box-shadow: 0 2px 4px rgba(102, 126, 234, 0.3);
+        animation: pulse 1s ease-in-out;
       }
 
       .cell.current {
-        background: #ff6b6b;
-        border-color: #ff5252;
+        background: linear-gradient(45deg, #ff6b6b, #ff5252);
+        border-color: #ff4444;
+        box-shadow: 0 2px 8px rgba(255, 107, 107, 0.5);
+        animation: glow 1.5s ease-in-out infinite alternate;
       }
 
       .cell.ghost {
         background: rgba(102, 126, 234, 0.3);
         border-color: rgba(102, 126, 234, 0.5);
+        box-shadow: 0 1px 3px rgba(102, 126, 234, 0.2);
+      }
+
+      @keyframes pulse {
+        0% {
+          transform: scale(1);
+        }
+        50% {
+          transform: scale(1.1);
+        }
+        100% {
+          transform: scale(1);
+        }
+      }
+
+      @keyframes glow {
+        from {
+          box-shadow: 0 2px 8px rgba(255, 107, 107, 0.5);
+        }
+        to {
+          box-shadow: 0 4px 12px rgba(255, 107, 107, 0.8);
+        }
       }
 
       .logs {
@@ -287,6 +357,24 @@
         <p id="playerInfo">플레이어: 미연결</p>
       </div>
 
+      <div class="room-info" id="roomInfo" style="display: none">
+        <h4>🏠 룸 정보</h4>
+        <p id="roomId">룸 ID: -</p>
+        <p id="roomPlayers">플레이어 수: 0/99</p>
+        <p id="roomStatus">상태: 대기 중</p>
+      </div>
+
+      <div class="game-info" id="gameInfo" style="display: none">
+        <h4>🎯 개인 게임 정보</h4>
+        <p id="gameScore">점수: 0</p>
+        <p id="gameLevel">레벨: 1</p>
+        <p id="gameLines">라인: 0</p>
+        <p id="gamePiece">현재 조각: -</p>
+        <p id="gameNext">다음 조각: -</p>
+        <p id="gameStatus">게임 상태: 대기 중</p>
+        <p id="serverClientInfo">서버/클라이언트 조각: -</p>
+      </div>
+
       <div class="status-panel">
         <div class="status-card">
           <h4>지연 시간</h4>
@@ -308,35 +396,23 @@
 
       <div class="main-controls">
         <div class="control-section">
-          <h3>🎯 게임 참여</h3>
+          <h3>🎯 자동 룸 참여</h3>
           <div class="form-group">
-            <label for="playerId">플레이어 ID:</label>
+            <label for="playerName">플레이어 이름:</label>
             <input
               type="text"
-              id="playerId"
-              placeholder="플레이어 ID를 입력하세요"
+              id="playerName"
+              placeholder="플레이어 이름을 입력하세요"
               value="player123"
             />
           </div>
-          <div class="form-group">
-            <label for="clientVersion">클라이언트 버전:</label>
-            <input
-              type="text"
-              id="clientVersion"
-              placeholder="클라이언트 버전"
-              value="1.0.0"
-            />
-          </div>
-          <div class="form-group">
-            <label for="preferredSeed">선호 시드 (선택):</label>
-            <input type="number" id="preferredSeed" placeholder="랜덤 시드" />
-          </div>
-          <button onclick="gameManager.joinGame()">게임 참여</button>
-          <button onclick="gameManager.matchReady()">매치 준비</button>
+          <button onclick="autoRoomManager.joinAutoRoom()">자동 룸 참여</button>
+          <button onclick="autoRoomManager.leaveAutoRoom()">룸 나가기</button>
+          <button onclick="autoRoomManager.getRoomStats()">룸 통계</button>
         </div>
 
         <div class="control-section">
-          <h3>🎮 입력 이벤트</h3>
+          <h3>🎮 개인 게임 조작</h3>
           <div class="form-group">
             <label for="currentPieceId">현재 조각:</label>
             <select id="currentPieceId">
@@ -354,24 +430,25 @@
             <input type="number" id="expectedDropTick" value="125" />
           </div>
           <div class="input-actions">
-            <button onclick="inputManager.sendInput(['move_left'])">
+            <button onclick="gameManager.sendInput(['move_left'])">
               ← 왼쪽
             </button>
-            <button onclick="inputManager.sendInput(['move_right'])">
+            <button onclick="gameManager.sendInput(['move_right'])">
               오른쪽 →
             </button>
-            <button onclick="inputManager.sendInput(['rotate'])">회전</button>
-            <button onclick="inputManager.sendInput(['soft_drop'])">
+            <button onclick="gameManager.sendInput(['rotate'])">회전</button>
+            <button onclick="gameManager.sendInput(['soft_drop'])">
               소프트 드롭
             </button>
-            <button onclick="inputManager.sendInput(['hard_drop'])">
+            <button onclick="gameManager.sendInput(['hard_drop'])">
               하드 드롭
             </button>
-            <button onclick="inputManager.sendInput(['hold'])">홀드</button>
+            <button onclick="gameManager.sendInput(['hold'])">홀드</button>
           </div>
-          <button onclick="inputManager.sendInput(['move_left', 'rotate'])">
+          <button onclick="gameManager.sendInput(['move_left', 'rotate'])">
             복합 입력
           </button>
+          <button onclick="gameManager.getGameState()">게임 상태 조회</button>
         </div>
       </div>
 
@@ -407,6 +484,13 @@
           <button onclick="debugManager.getNetworkStats()">
             네트워크 통계
           </button>
+          <button onclick="gameManager.startAutoSync()">
+            자동 동기화 시작
+          </button>
+          <button onclick="gameManager.stopAutoSync()">자동 동기화 중지</button>
+          <button onclick="gameManager.getGameState()">수동 상태 조회</button>
+          <button onclick="gameManager.startPieceFall()">조각 하강 시작</button>
+          <button onclick="gameManager.stopPieceFall()">조각 하강 중지</button>
           <button onclick="debugManager.disconnect()">연결 해제</button>
         </div>
       </div>
@@ -446,79 +530,872 @@
         },
       };
 
-      const gameManager = {
-        joinGame() {
-          const playerId = document.getElementById('playerId').value;
-          const clientVersion = document.getElementById('clientVersion').value;
-          const preferredSeed = document.getElementById('preferredSeed').value;
+      const autoRoomManager = {
+        currentRoomId: null,
+        currentPlayerId: null,
 
-          if (!playerId) {
-            logger.log('플레이어 ID를 입력하세요', 'error');
+        async joinAutoRoom() {
+          const playerName = document.getElementById('playerName').value;
+
+          if (!playerName) {
+            logger.log('플레이어 이름을 입력하세요', 'error');
             return;
           }
 
-          const message = {
-            type: 'join_game',
-            playerId: playerId,
-            clientVersion: clientVersion,
-            preferredSeed: preferredSeed ? parseInt(preferredSeed) : null,
-            timestamp: networkManager.getAdjustedTime(),
-          };
+          try {
+            const response = await new Promise((resolve, reject) => {
+              socket.emit('joinAutoRoom', { name: playerName }, (response) => {
+                if (response.success) {
+                  resolve(response);
+                } else {
+                  reject(new Error(response.error?.message || '룸 참여 실패'));
+                }
+              });
+            });
 
-          socket.emit('join_game', message);
-          logger.log(`게임 참여 요청: ${JSON.stringify(message)}`, 'info');
+            this.currentRoomId = response.roomId;
+            this.currentPlayerId = response.player.id;
+
+            updateRoomInfo(response.roomId, response.player);
+            updatePlayerInfo(`플레이어: ${response.player.name}`);
+            logger.log(`자동 룸 참여 성공: ${response.roomId}`, 'success');
+
+            // 게임 상태 조회
+            setTimeout(() => {
+              gameManager.getGameState();
+              // 자동 동기화 시작
+              gameManager.startAutoSync();
+              // 조각 자동 하강 시작
+              gameManager.startPieceFall();
+              // 조각 위치 초기화
+              gameManager.initializePiecePosition();
+            }, 1000);
+          } catch (error) {
+            logger.log(`자동 룸 참여 실패: ${error.message}`, 'error');
+          }
         },
 
-        matchReady() {
-          const playerId = document.getElementById('playerId').value;
-          const clientVersion = document.getElementById('clientVersion').value;
-          const preferredSeed = document.getElementById('preferredSeed').value;
-
-          if (!playerId) {
-            logger.log('플레이어 ID를 입력하세요', 'error');
+        async leaveAutoRoom() {
+          if (!this.currentRoomId || !this.currentPlayerId) {
+            logger.log('현재 룸에 참여하지 않았습니다', 'warning');
             return;
           }
 
-          const message = {
-            type: 'match_ready',
-            playerId: playerId,
-            clientVersion: clientVersion,
-            preferredSeed: preferredSeed ? parseInt(preferredSeed) : null,
-            timestamp: networkManager.getAdjustedTime(),
-          };
+          try {
+            await new Promise((resolve, reject) => {
+              socket.emit(
+                'leaveAutoRoom',
+                {
+                  roomId: this.currentRoomId,
+                  playerId: this.currentPlayerId,
+                },
+                (response) => {
+                  if (response.success) {
+                    resolve(response);
+                  } else {
+                    reject(
+                      new Error(response.error?.message || '룸 나가기 실패'),
+                    );
+                  }
+                },
+              );
+            });
 
-          socket.emit('match_ready', message);
-          logger.log(`매치 준비 요청: ${JSON.stringify(message)}`, 'info');
+            logger.log(`룸 나가기 성공: ${this.currentRoomId}`, 'success');
+            this.currentRoomId = null;
+            this.currentPlayerId = null;
+            hideRoomInfo();
+            hideGameInfo();
+            updatePlayerInfo('미연결');
+            gameManager.stopAutoSync(); // 룸 나가기 시 동기화 중지
+            gameManager.stopPieceFall(); // 룸 나가기 시 조각 하강 중지
+          } catch (error) {
+            logger.log(`룸 나가기 실패: ${error.message}`, 'error');
+          }
+        },
+
+        async getRoomStats() {
+          try {
+            const response = await new Promise((resolve, reject) => {
+              socket.emit('getRoomStats', {}, (response) => {
+                if (response.success) {
+                  resolve(response);
+                } else {
+                  reject(
+                    new Error(response.error?.message || '통계 조회 실패'),
+                  );
+                }
+              });
+            });
+
+            const stats = response.stats;
+            logger.log(
+              `룸 통계: 총 ${stats.totalRooms}개 룸, ${stats.totalPlayers}명 플레이어`,
+              'info',
+            );
+            logger.log(
+              `대기 중: ${stats.waitingRooms}개, 진행 중: ${stats.playingRooms}개`,
+              'info',
+            );
+          } catch (error) {
+            logger.log(`룸 통계 조회 실패: ${error.message}`, 'error');
+          }
         },
       };
 
-      const inputManager = {
-        sendInput(actions) {
-          const playerId = document.getElementById('playerId').value;
-          const currentPieceId =
-            document.getElementById('currentPieceId').value;
-          const expectedDropTick = parseInt(
-            document.getElementById('expectedDropTick').value,
-          );
+      const gameManager = {
+        currentPlayerId: null,
+        autoSyncInterval: null,
+        currentPiecePosition: { x: 3, y: 0 }, // 현재 조각 위치 (보드 중앙 상단)
+        pieceFallInterval: null,
+        serverGameState: null, // 서버에서 받은 게임 상태
+        clientCurrentPiece: 'T', // 클라이언트에서 선택한 현재 조각
+        pieceRotationState: {}, // 조각 회전 상태를 저장하는 객체
 
-          if (!playerId) {
-            logger.log('플레이어 ID를 입력하세요', 'error');
+        // 조각 위치 초기화
+        initializePiecePosition() {
+          this.currentPiecePosition = { x: 3, y: 0 }; // 보드 중앙 상단
+          this.pieceRotationState = {}; // 회전 상태 초기화
+          logger.log('조각 위치 초기화: (3, 0)', 'info');
+        },
+
+        async getGameState() {
+          if (!autoRoomManager.currentPlayerId) {
+            logger.log('플레이어가 룸에 참여하지 않았습니다', 'warning');
             return;
           }
 
-          const message = {
-            type: 'input_event',
-            playerId: playerId,
-            seq: ++networkManager.sequenceNumber,
-            actions: actions,
-            currentPieceId: currentPieceId,
-            expectedDropTick: expectedDropTick,
-            timestamp: networkManager.getAdjustedTime(),
+          try {
+            const response = await new Promise((resolve, reject) => {
+              socket.emit(
+                'getPlayerGameState',
+                {
+                  playerId: autoRoomManager.currentPlayerId,
+                },
+                (response) => {
+                  if (response.success) {
+                    resolve(response);
+                  } else {
+                    reject(
+                      new Error(
+                        response.error?.message || '게임 상태 조회 실패',
+                      ),
+                    );
+                  }
+                },
+              );
+            });
+
+            if (response.gameState) {
+              // 서버 상태 저장
+              this.serverGameState = response.gameState;
+
+              // 서버 조각을 클라이언트 조각과 동기화
+              this.syncClientPieceWithServer(response.gameState.currentPiece);
+
+              this.updateGameInfo(response.gameState);
+              this.updateTetrisBoard(response.gameState);
+              logger.log(
+                `게임 상태 조회 성공: 점수 ${response.gameState.score}`,
+                'success',
+              );
+
+              // 보드 시각화 로그 추가
+              if (response.gameState.board) {
+                const visualization = this.visualizeBoard(
+                  response.gameState.board,
+                );
+                logger.log(`보드 상태:\n${visualization}`, 'info');
+              }
+            }
+          } catch (error) {
+            logger.log(`게임 상태 조회 실패: ${error.message}`, 'error');
+          }
+        },
+
+        // 서버 조각을 클라이언트 조각과 동기화
+        syncClientPieceWithServer(serverPiece) {
+          if (serverPiece) {
+            let pieceType = serverPiece;
+
+            // 새로운 테트리스 로직: serverPiece가 객체인 경우
+            if (typeof serverPiece === 'object' && serverPiece.type) {
+              pieceType = serverPiece.type;
+            }
+
+            if (pieceType !== this.clientCurrentPiece) {
+              const oldPiece = this.clientCurrentPiece;
+              this.clientCurrentPiece = pieceType;
+
+              // select 요소 업데이트
+              const currentPieceSelect =
+                document.getElementById('currentPieceId');
+              if (currentPieceSelect) {
+                currentPieceSelect.value = pieceType;
+              }
+
+              logger.log(
+                `클라이언트 조각 동기화: ${oldPiece} → ${pieceType}`,
+                'success',
+              );
+            }
+          }
+        },
+
+        async sendInput(actions) {
+          if (!autoRoomManager.currentPlayerId) {
+            logger.log('플레이어가 룸에 참여하지 않았습니다', 'warning');
+            return;
+          }
+
+          try {
+            // 입력에 따른 조각 위치 업데이트
+            this.updatePiecePosition(actions[0]);
+
+            const response = await new Promise((resolve, reject) => {
+              socket.emit(
+                'handlePlayerInput',
+                {
+                  playerId: autoRoomManager.currentPlayerId,
+                  action: actions[0],
+                  // 새로운 테트리스 로직에서는 서버가 조각 정보를 관리하므로
+                  // 클라이언트에서 조각 정보를 전송하지 않음
+                },
+                (response) => {
+                  if (response.success) {
+                    resolve(response);
+                  } else {
+                    reject(
+                      new Error(response.error?.message || '입력 처리 실패'),
+                    );
+                  }
+                },
+              );
+            });
+
+            if (response.gameState) {
+              // 서버 상태 업데이트
+              this.serverGameState = response.gameState;
+
+              // 서버 조각과 클라이언트 조각 동기화
+              this.syncClientPieceWithServer(response.gameState.currentPiece);
+
+              this.updateGameInfo(response.gameState);
+              this.updateTetrisBoard(response.gameState);
+              logger.log(`입력 처리 성공: ${actions[0]}`, 'success');
+            }
+          } catch (error) {
+            logger.log(`입력 처리 실패: ${error.message}`, 'error');
+          }
+        },
+
+        updatePiecePosition(action) {
+          switch (action) {
+            case 'move_left':
+              if (this.currentPiecePosition.x > 0) {
+                this.currentPiecePosition.x--;
+              }
+              break;
+            case 'move_right':
+              if (this.currentPiecePosition.x < 6) {
+                this.currentPiecePosition.x++;
+              }
+              break;
+            case 'soft_drop':
+              if (this.currentPiecePosition.y < 16) {
+                this.currentPiecePosition.y++;
+              }
+              break;
+            case 'hard_drop':
+              // 하드 드롭 시 바닥으로 이동 (조각 크기 고려)
+              this.currentPiecePosition.y = 16;
+              logger.log(
+                `하드 드롭: 조각을 바닥으로 이동 (${this.currentPiecePosition.x}, ${this.currentPiecePosition.y})`,
+                'success',
+              );
+
+              // 하드 드롭 후 새로운 조각 시작
+              setTimeout(() => {
+                this.currentPiecePosition.y = 0;
+                this.currentPiecePosition.x = 3;
+                this.pieceRotationState = {}; // 회전 상태 초기화
+                logger.log(
+                  `새로운 조각 시작: (${this.currentPiecePosition.x}, ${this.currentPiecePosition.y})`,
+                  'success',
+                );
+              }, 100);
+              break;
+            case 'rotate':
+              // 회전 로직 구현
+              this.rotateCurrentPiece();
+              break;
+          }
+
+          logger.log(
+            `조각 위치 업데이트: ${action} -> (${this.currentPiecePosition.x}, ${this.currentPiecePosition.y})`,
+            'info',
+          );
+        },
+
+        // 현재 조각 회전
+        rotateCurrentPiece() {
+          const currentPiece = this.clientCurrentPiece;
+          const rotatedPiece = this.getRotatedPiece(currentPiece);
+
+          if (rotatedPiece) {
+            this.clientCurrentPiece = rotatedPiece;
+
+            // select 요소 업데이트
+            const currentPieceSelect =
+              document.getElementById('currentPieceId');
+            if (currentPieceSelect) {
+              currentPieceSelect.value = rotatedPiece;
+            }
+
+            logger.log(
+              `조각 회전: ${currentPiece} → ${rotatedPiece}`,
+              'success',
+            );
+
+            // 보드 즉시 업데이트
+            if (this.serverGameState) {
+              this.updateTetrisBoard({
+                ...this.serverGameState,
+                currentPiece: this.clientCurrentPiece,
+              });
+            }
+          }
+        },
+
+        // 조각 회전 로직 (단순화)
+        getRotatedPiece(piece) {
+          // 각 조각의 회전 상태를 추적
+          if (!this.pieceRotationState) {
+            this.pieceRotationState = {};
+          }
+
+          // 현재 회전 상태 가져오기 (기본값: 0)
+          const currentRotation = this.pieceRotationState[piece] || 0;
+          const nextRotation = (currentRotation + 1) % 4; // 4방향 회전
+
+          // 회전 상태 업데이트
+          this.pieceRotationState[piece] = nextRotation;
+
+          logger.log(
+            `조각 ${piece} 회전: ${currentRotation * 90}도 → ${nextRotation * 90}도`,
+            'info',
+          );
+
+          return piece; // 조각 타입은 변경하지 않고 회전 상태만 변경
+        },
+
+        // 회전된 조각 모양 반환
+        getRotatedPieceShape(piece, rotation) {
+          const rotationShapes = {
+            I: [
+              // 0도: 가로
+              [
+                [0, 0, 0, 0],
+                [1, 1, 1, 1],
+                [0, 0, 0, 0],
+                [0, 0, 0, 0],
+              ],
+              // 90도: 세로
+              [
+                [0, 0, 1, 0],
+                [0, 0, 1, 0],
+                [0, 0, 1, 0],
+                [0, 0, 1, 0],
+              ],
+              // 180도: 가로 (0도와 동일)
+              [
+                [0, 0, 0, 0],
+                [1, 1, 1, 1],
+                [0, 0, 0, 0],
+                [0, 0, 0, 0],
+              ],
+              // 270도: 세로 (90도와 동일)
+              [
+                [0, 0, 1, 0],
+                [0, 0, 1, 0],
+                [0, 0, 1, 0],
+                [0, 0, 1, 0],
+              ],
+            ],
+            T: [
+              // 0도
+              [
+                [0, 1, 0, 0],
+                [1, 1, 1, 0],
+                [0, 0, 0, 0],
+                [0, 0, 0, 0],
+              ],
+              // 90도
+              [
+                [0, 1, 0, 0],
+                [0, 1, 1, 0],
+                [0, 1, 0, 0],
+                [0, 0, 0, 0],
+              ],
+              // 180도
+              [
+                [0, 0, 0, 0],
+                [1, 1, 1, 0],
+                [0, 1, 0, 0],
+                [0, 0, 0, 0],
+              ],
+              // 270도
+              [
+                [0, 1, 0, 0],
+                [1, 1, 0, 0],
+                [0, 1, 0, 0],
+                [0, 0, 0, 0],
+              ],
+            ],
+            S: [
+              // 0도
+              [
+                [0, 1, 1, 0],
+                [1, 1, 0, 0],
+                [0, 0, 0, 0],
+                [0, 0, 0, 0],
+              ],
+              // 90도
+              [
+                [0, 1, 0, 0],
+                [0, 1, 1, 0],
+                [0, 0, 1, 0],
+                [0, 0, 0, 0],
+              ],
+              // 180도 (0도와 동일)
+              [
+                [0, 1, 1, 0],
+                [1, 1, 0, 0],
+                [0, 0, 0, 0],
+                [0, 0, 0, 0],
+              ],
+              // 270도 (90도와 동일)
+              [
+                [0, 1, 0, 0],
+                [0, 1, 1, 0],
+                [0, 0, 1, 0],
+                [0, 0, 0, 0],
+              ],
+            ],
+            Z: [
+              // 0도
+              [
+                [1, 1, 0, 0],
+                [0, 1, 1, 0],
+                [0, 0, 0, 0],
+                [0, 0, 0, 0],
+              ],
+              // 90도
+              [
+                [0, 0, 1, 0],
+                [0, 1, 1, 0],
+                [0, 1, 0, 0],
+                [0, 0, 0, 0],
+              ],
+              // 180도 (0도와 동일)
+              [
+                [1, 1, 0, 0],
+                [0, 1, 1, 0],
+                [0, 0, 0, 0],
+                [0, 0, 0, 0],
+              ],
+              // 270도 (90도와 동일)
+              [
+                [0, 0, 1, 0],
+                [0, 1, 1, 0],
+                [0, 1, 0, 0],
+                [0, 0, 0, 0],
+              ],
+            ],
+            J: [
+              // 0도
+              [
+                [1, 0, 0, 0],
+                [1, 1, 1, 0],
+                [0, 0, 0, 0],
+                [0, 0, 0, 0],
+              ],
+              // 90도
+              [
+                [0, 1, 1, 0],
+                [0, 1, 0, 0],
+                [0, 1, 0, 0],
+                [0, 0, 0, 0],
+              ],
+              // 180도
+              [
+                [0, 0, 0, 0],
+                [1, 1, 1, 0],
+                [0, 0, 1, 0],
+                [0, 0, 0, 0],
+              ],
+              // 270도
+              [
+                [0, 1, 0, 0],
+                [0, 1, 0, 0],
+                [1, 1, 0, 0],
+                [0, 0, 0, 0],
+              ],
+            ],
+            L: [
+              // 0도
+              [
+                [0, 0, 1, 0],
+                [1, 1, 1, 0],
+                [0, 0, 0, 0],
+                [0, 0, 0, 0],
+              ],
+              // 90도
+              [
+                [0, 1, 0, 0],
+                [0, 1, 0, 0],
+                [0, 1, 1, 0],
+                [0, 0, 0, 0],
+              ],
+              // 180도
+              [
+                [0, 0, 0, 0],
+                [1, 1, 1, 0],
+                [1, 0, 0, 0],
+                [0, 0, 0, 0],
+              ],
+              // 270도
+              [
+                [1, 1, 0, 0],
+                [0, 1, 0, 0],
+                [0, 1, 0, 0],
+                [0, 0, 0, 0],
+              ],
+            ],
+            O: [
+              // O 조각은 회전해도 동일
+              [
+                [0, 1, 1, 0],
+                [0, 1, 1, 0],
+                [0, 0, 0, 0],
+                [0, 0, 0, 0],
+              ],
+            ],
           };
 
-          socket.emit('input_event', message);
-          logger.log(`입력 이벤트 전송: ${JSON.stringify(message)}`, 'info');
-          networkManager.updateSequenceNumber();
+          const shapes = rotationShapes[piece];
+          if (shapes && shapes[rotation]) {
+            return shapes[rotation];
+          }
+
+          // 기본 모양 반환
+          return this.getPieceShape(piece);
+        },
+
+        // 조각 모양 가져오기 (기본 모양)
+        getPieceShape(piece) {
+          const pieceShapes = {
+            I: [
+              [0, 0, 0, 0],
+              [1, 1, 1, 1],
+              [0, 0, 0, 0],
+              [0, 0, 0, 0],
+            ],
+            O: [
+              [0, 1, 1, 0],
+              [0, 1, 1, 0],
+              [0, 0, 0, 0],
+              [0, 0, 0, 0],
+            ],
+            T: [
+              [0, 1, 0, 0],
+              [1, 1, 1, 0],
+              [0, 0, 0, 0],
+              [0, 0, 0, 0],
+            ],
+            S: [
+              [0, 1, 1, 0],
+              [1, 1, 0, 0],
+              [0, 0, 0, 0],
+              [0, 0, 0, 0],
+            ],
+            Z: [
+              [1, 1, 0, 0],
+              [0, 1, 1, 0],
+              [0, 0, 0, 0],
+              [0, 0, 0, 0],
+            ],
+            J: [
+              [1, 0, 0, 0],
+              [1, 1, 1, 0],
+              [0, 0, 0, 0],
+              [0, 0, 0, 0],
+            ],
+            L: [
+              [0, 0, 1, 0],
+              [1, 1, 1, 0],
+              [0, 0, 0, 0],
+              [0, 0, 0, 0],
+            ],
+          };
+
+          return pieceShapes[piece] || pieceShapes['I'];
+        },
+
+        startPieceFall() {
+          if (this.pieceFallInterval) {
+            clearInterval(this.pieceFallInterval);
+          }
+
+          this.pieceFallInterval = setInterval(() => {
+            if (this.currentPiecePosition.y < 16) {
+              this.currentPiecePosition.y++;
+              this.updateTetrisBoardDisplay();
+              logger.log(
+                `조각 자동 하강: (${this.currentPiecePosition.x}, ${this.currentPiecePosition.y})`,
+                'info',
+              );
+            } else {
+              // 바닥에 도달하면 새로운 조각 시작
+              this.currentPiecePosition.y = 0;
+              this.currentPiecePosition.x = 3;
+              this.pieceRotationState = {}; // 회전 상태 초기화
+              logger.log(
+                `새로운 조각 시작: (${this.currentPiecePosition.x}, ${this.currentPiecePosition.y})`,
+                'success',
+              );
+            }
+          }, 1000); // 1초마다 하강
+
+          logger.log('조각 자동 하강 시작', 'info');
+        },
+
+        stopPieceFall() {
+          if (this.pieceFallInterval) {
+            clearInterval(this.pieceFallInterval);
+            this.pieceFallInterval = null;
+            logger.log('조각 자동 하강 중지', 'info');
+          }
+        },
+
+        updateTetrisBoardDisplay() {
+          // 클라이언트 선택 조각으로 보드 업데이트
+          this.updateTetrisBoard({
+            board: this.getCurrentBoard(),
+            currentPiece: this.clientCurrentPiece,
+            score: this.serverGameState?.score || 0,
+            level: this.serverGameState?.level || 1,
+            linesCleared: this.serverGameState?.linesCleared || 0,
+            gameStarted: true,
+          });
+        },
+
+        getCurrentBoard() {
+          // 현재 보드 상태를 반환 (실제로는 서버에서 가져와야 함)
+          const board = [];
+          for (let y = 0; y < 20; y++) {
+            board[y] = [];
+            for (let x = 0; x < 10; x++) {
+              board[y][x] = 0;
+            }
+          }
+          return board;
+        },
+
+        startAutoSync() {
+          if (this.autoSyncInterval) {
+            clearInterval(this.autoSyncInterval);
+          }
+
+          this.autoSyncInterval = setInterval(() => {
+            if (autoRoomManager.currentPlayerId) {
+              this.getGameState();
+            }
+          }, 2000); // 2초마다 자동 동기화
+
+          logger.log('자동 게임 상태 동기화 시작 (2초마다)', 'info');
+        },
+
+        stopAutoSync() {
+          if (this.autoSyncInterval) {
+            clearInterval(this.autoSyncInterval);
+            this.autoSyncInterval = null;
+            logger.log('자동 게임 상태 동기화 중지', 'info');
+          }
+        },
+
+        updateGameInfo(gameState) {
+          document.getElementById('gameScore').textContent =
+            `점수: ${gameState.score}`;
+          document.getElementById('gameLevel').textContent =
+            `레벨: ${gameState.level}`;
+          document.getElementById('gameLines').textContent =
+            `라인: ${gameState.linesCleared}`;
+
+          // 현재 조각 정보 표시
+          let currentPieceText = '-';
+          if (gameState.currentPiece) {
+            if (typeof gameState.currentPiece === 'object') {
+              currentPieceText = `${gameState.currentPiece.type} (${gameState.currentPiece.position.x}, ${gameState.currentPiece.position.y})`;
+            } else {
+              currentPieceText = gameState.currentPiece;
+            }
+          }
+          document.getElementById('gamePiece').textContent =
+            `현재 조각: ${currentPieceText}`;
+
+          // 다음 조각 정보 표시
+          let nextPieceText = '-';
+          if (gameState.nextPiece) {
+            if (typeof gameState.nextPiece === 'object') {
+              nextPieceText = gameState.nextPiece.type;
+            } else {
+              nextPieceText = gameState.nextPiece;
+            }
+          }
+          document.getElementById('gameNext').textContent =
+            `다음 조각: ${nextPieceText}`;
+
+          document.getElementById('gameStatus').textContent =
+            `게임 상태: ${gameState.gameStarted ? '진행 중' : '대기 중'}`;
+
+          // 동기화된 조각 정보 표시
+          let syncPieceText = '-';
+          if (gameState.currentPiece) {
+            if (typeof gameState.currentPiece === 'object') {
+              syncPieceText = `${gameState.currentPiece.type} (${gameState.currentPiece.position.x}, ${gameState.currentPiece.position.y})`;
+            } else {
+              syncPieceText = gameState.currentPiece;
+            }
+          }
+          document.getElementById('serverClientInfo').textContent =
+            `동기화된 조각: ${syncPieceText}`;
+
+          document.getElementById('gameInfo').style.display = 'block';
+        },
+
+        updateTetrisBoard(gameState) {
+          if (!gameState.board) {
+            logger.log('게임 보드 데이터가 없습니다', 'warning');
+            return;
+          }
+
+          const board = gameState.board;
+          const currentPiece = gameState.currentPiece;
+
+          // 보드 그리드 업데이트
+          for (let y = 0; y < 20; y++) {
+            for (let x = 0; x < 10; x++) {
+              const cell = document.getElementById(`cell-${x}-${y}`);
+              if (cell) {
+                // 기존 클래스 제거
+                cell.className = 'cell';
+
+                // 보드 상태에 따라 셀 스타일 적용
+                if (board[y] && board[y][x] === 1) {
+                  cell.classList.add('filled');
+                }
+
+                // 현재 조각 위치에 따라 표시
+                if (this.isPieceCell(x, y, currentPiece)) {
+                  cell.classList.add('current');
+                }
+              }
+            }
+          }
+
+          // 보드 제목 업데이트
+          const boardTitle = document.querySelector('.board-title');
+          if (boardTitle) {
+            let pieceInfo = '없음';
+            let rotationInfo = '0도';
+            let positionInfo = '(0, 0)';
+
+            if (currentPiece && typeof currentPiece === 'object') {
+              pieceInfo = currentPiece.type;
+              rotationInfo = `${currentPiece.rotation * 90}도`;
+              positionInfo = `(${currentPiece.position.x}, ${currentPiece.position.y})`;
+            } else if (currentPiece) {
+              pieceInfo = currentPiece;
+            }
+
+            boardTitle.textContent = `테트리스 보드 - ${pieceInfo} 조각 (${rotationInfo} 회전) (점수: ${gameState.score}) - 위치: ${positionInfo}`;
+          }
+
+          // 보드 상태 로그
+          const filledCells = board.flat().filter((cell) => cell === 1).length;
+          let pieceLog = '없음';
+          let positionLog = '(0, 0)';
+
+          if (currentPiece && typeof currentPiece === 'object') {
+            pieceLog = currentPiece.type;
+            positionLog = `(${currentPiece.position.x}, ${currentPiece.position.y})`;
+          } else if (currentPiece) {
+            pieceLog = currentPiece;
+          }
+
+          logger.log(
+            `보드 업데이트 완료: ${pieceLog} 조각, 채워진 셀: ${filledCells}개, 위치: ${positionLog}`,
+            'info',
+          );
+        },
+
+        isPieceCell(x, y, piece) {
+          if (!piece) return false;
+
+          // 새로운 테트리스 로직: piece가 객체인 경우
+          if (typeof piece === 'object' && piece.shape && piece.position) {
+            const shape = piece.shape;
+            const position = piece.position;
+
+            // 보드 좌표를 조각 내부 좌표로 변환
+            const shapeX = x - position.x;
+            const shapeY = y - position.y;
+
+            // 조각 내부 좌표가 유효한 범위인지 확인
+            if (
+              shapeY >= 0 &&
+              shapeY < shape.length &&
+              shapeX >= 0 &&
+              shapeX < shape[0].length
+            ) {
+              return shape[shapeY][shapeX] === 1;
+            }
+
+            return false;
+          }
+
+          // 기존 로직: piece가 문자열인 경우 (하위 호환성)
+          const currentRotation = this.pieceRotationState[piece] || 0;
+          const shape = this.getRotatedPieceShape(piece, currentRotation);
+
+          // 조각의 중심점 계산 (4x4 그리드 기준)
+          const centerX = this.currentPiecePosition.x + 1; // 조각 중심 X
+          const centerY = this.currentPiecePosition.y + 1; // 조각 중심 Y
+
+          // 보드 좌표를 조각 내부 좌표로 변환
+          const shapeX = x - (centerX - 2); // 조각 내부 X 좌표
+          const shapeY = y - (centerY - 2); // 조각 내부 Y 좌표
+
+          // 조각 내부 좌표가 유효한 범위인지 확인
+          if (shapeY >= 0 && shapeY < 4 && shapeX >= 0 && shapeX < 4) {
+            return shape[shapeY][shapeX] === 1;
+          }
+
+          return false;
+        },
+
+        // 보드 상태를 시각적으로 더 명확하게 표시하는 함수
+        visualizeBoard(board) {
+          let visualization = '';
+          for (let y = 0; y < 20; y++) {
+            let row = '';
+            for (let x = 0; x < 10; x++) {
+              row += board[y] && board[y][x] === 1 ? '█' : '·';
+            }
+            visualization += row + '\n';
+          }
+          return visualization;
         },
       };
 
@@ -533,7 +1410,7 @@
         },
 
         sendPing() {
-          const playerId = document.getElementById('playerId').value;
+          const playerId = document.getElementById('playerName').value;
           this.lastPingTime = Date.now();
 
           const message = {
@@ -548,7 +1425,7 @@
         },
 
         requestSnapshot(reason) {
-          const playerId = document.getElementById('playerId').value;
+          const playerId = document.getElementById('playerName').value;
 
           if (!playerId) {
             logger.log('플레이어 ID를 입력하세요', 'error');
@@ -568,7 +1445,7 @@
         },
 
         sendAck(ackType, referenceId) {
-          const playerId = document.getElementById('playerId').value;
+          const playerId = document.getElementById('playerName').value;
 
           if (!playerId) {
             logger.log('플레이어 ID를 입력하세요', 'error');
@@ -588,7 +1465,7 @@
         },
 
         sendKeepalive() {
-          const playerId = document.getElementById('playerId').value;
+          const playerId = document.getElementById('playerName').value;
 
           if (!playerId) {
             logger.log('플레이어 ID를 입력하세요', 'error');
@@ -645,7 +1522,7 @@
         keepaliveInterval: null,
 
         sendDesyncReport() {
-          const playerId = document.getElementById('playerId').value;
+          const playerId = document.getElementById('playerName').value;
 
           if (!playerId) {
             logger.log('플레이어 ID를 입력하세요', 'error');
@@ -736,6 +1613,21 @@
         debugManager.stopPeriodicTasks();
       });
 
+      // 자동 룸 시스템 이벤트 리스너
+      socket.on('playerJoined', (data) => {
+        logger.log(
+          `플레이어 참가: ${data.player.name} (${data.player.id})`,
+          'success',
+        );
+        if (data.roomId) {
+          updateRoomInfo(data.roomId, data.player);
+        }
+      });
+
+      socket.on('playerLeft', (data) => {
+        logger.log(`플레이어 퇴장: ${data.playerId}`, 'info');
+      });
+
       // 네트워크 프로토콜 이벤트 리스너
       socket.on('join_game_response', (response) => {
         logger.log(`게임 참여 응답: ${JSON.stringify(response)}`, 'success');
@@ -749,6 +1641,39 @@
 
       socket.on('input_event_received', (data) => {
         logger.log(`입력 이벤트 수신: ${JSON.stringify(data)}`, 'info');
+      });
+
+      // 실시간 게임 상태 업데이트 이벤트 리스너
+      socket.on('gameStateUpdated', (data) => {
+        if (data.success && data.gameState) {
+          // 서버 상태 저장
+          gameManager.serverGameState = data.gameState;
+
+          // 서버 조각과 클라이언트 조각 동기화
+          gameManager.syncClientPieceWithServer(data.gameState.currentPiece);
+
+          gameManager.updateGameInfo(data.gameState);
+          gameManager.updateTetrisBoard(data.gameState);
+          logger.log(
+            `실시간 게임 상태 업데이트: 점수 ${data.gameState.score}`,
+            'success',
+          );
+
+          // 보드 시각화 로그
+          if (data.gameState.board) {
+            const visualization = gameManager.visualizeBoard(
+              data.gameState.board,
+            );
+            logger.log(`보드 상태:\n${visualization}`, 'info');
+          }
+        }
+      });
+
+      socket.on('playerGameStateChanged', (data) => {
+        logger.log(
+          `다른 플레이어 게임 상태 변경: ${data.playerId} (점수: ${data.score})`,
+          'info',
+        );
       });
 
       socket.on('pong', (pongMessage) => {
@@ -784,6 +1709,22 @@
         document.getElementById('playerInfo').textContent = info;
       }
 
+      function updateRoomInfo(roomId, player) {
+        document.getElementById('roomId').textContent = `룸 ID: ${roomId}`;
+        document.getElementById('roomPlayers').textContent =
+          `플레이어 수: 1/99`;
+        document.getElementById('roomStatus').textContent = `상태: 대기 중`;
+        document.getElementById('roomInfo').style.display = 'block';
+      }
+
+      function hideRoomInfo() {
+        document.getElementById('roomInfo').style.display = 'none';
+      }
+
+      function hideGameInfo() {
+        document.getElementById('gameInfo').style.display = 'none';
+      }
+
       function updateTetrisBoardFromSnapshot(snapshot) {
         logger.log(`보드 업데이트: ${snapshot.currentPiece} 조각`, 'info');
       }
@@ -808,6 +1749,26 @@
         initializeTetrisBoard();
         networkManager.updateNetworkStats();
         logger.log('Tetris Network Protocol 테스트 페이지 로드됨', 'success');
+
+        // 현재 조각 select 변경 이벤트 리스너 추가
+        const currentPieceSelect = document.getElementById('currentPieceId');
+        if (currentPieceSelect) {
+          currentPieceSelect.addEventListener('change', (event) => {
+            gameManager.clientCurrentPiece = event.target.value;
+            logger.log(
+              `클라이언트 조각 수동 변경: ${event.target.value}`,
+              'info',
+            );
+
+            // 보드 즉시 업데이트 (수동 변경 시에만)
+            if (gameManager.serverGameState) {
+              gameManager.updateTetrisBoard({
+                ...gameManager.serverGameState,
+                currentPiece: gameManager.clientCurrentPiece,
+              });
+            }
+          });
+        }
       });
     </script>
   </body>

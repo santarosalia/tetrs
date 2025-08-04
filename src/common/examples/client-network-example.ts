@@ -214,7 +214,7 @@ export class TetrisNetworkClient {
   }
 
   private handlePong(pongMessage: any): void {
-    const { clientSendTime, serverReceiveTime, serverSendTime } = pongMessage;
+    const { clientSendTime, serverReceiveTime } = pongMessage;
     const clientReceiveTime = Date.now();
 
     // 왕복 지연 시간 계산

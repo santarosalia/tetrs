@@ -7,6 +7,7 @@ import { RedisService } from '../services/redis.service';
 import { NetworkSyncService } from '../services/network-sync.service';
 import { LoggerService } from '../common/services/logger.service';
 import { TetrisMapService } from '../services/tetris-map.service';
+import { TetrisLogicService } from '../services/tetris-logic.service';
 
 @Module({
   controllers: [GameController],
@@ -18,6 +19,7 @@ import { TetrisMapService } from '../services/tetris-map.service';
     NetworkSyncService,
     LoggerService,
     TetrisMapService,
+    TetrisLogicService,
   ],
   exports: [GameService],
 })

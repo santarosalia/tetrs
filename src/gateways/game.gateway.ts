@@ -16,7 +16,6 @@ import { WsException } from '@nestjs/websockets';
 import { LoggerService } from '../common/services/logger.service';
 import { TetrisMapService } from '../services/tetris-map.service';
 import {
-  NetworkMessage,
   JoinGameMessage,
   MatchReadyMessage,
   InputEventMessage,
@@ -65,29 +64,28 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
     @MessageBody() data: JoinGameMessage,
   ) {
     try {
-      const { playerId, clientVersion, preferredSeed } = data;
+      const { playerId } = data;
 
       // 클라이언트 상태 초기화
-      this.networkSyncService.initializeClientState(playerId, 'temp_game_id');
+      this.networkSyncService.initializeClientState(playerId, 'auto_room');
 
-      // 게임 참여 처리
+      // 자동 룸 배정으로 게임 참여
       const joinGameDto: JoinGameDto = {
         name: playerId,
         socketId: client.id,
       };
 
-      const player = await this.gameService.joinGame(
-        'temp_game_id',
-        joinGameDto,
-      );
+      const { roomId, player } =
+        await this.gameService.joinGameAuto(joinGameDto);
 
       // 게임 룸에 참여
-      client.join('temp_game_id');
+      client.join(roomId);
 
       // 서버 응답: 공유 시드, 게임 설정 등
       const response = {
         type: 'join_game_response',
         playerId,
+        roomId,
         sharedSeed: Math.floor(Math.random() * 1000000),
         garbageSyncSeed: Math.floor(Math.random() * 1000000),
         gameSettings: {
@@ -97,6 +95,12 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
         },
         player,
       };
+
+      // 룸의 다른 플레이어들에게 새 플레이어 참여 알림
+      client.broadcast.to(roomId).emit('playerJoined', {
+        player,
+        roomId,
+      });
 
       return response;
     } catch (error) {
@@ -116,17 +120,15 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
     @MessageBody() data: MatchReadyMessage,
   ) {
     try {
-      const { playerId, clientVersion, preferredSeed } = data;
+      const { playerId } = data;
 
       // 매치 준비 완료 처리
       this.logger.log(`Player ${playerId} is ready for match`, {
         playerId,
-        clientVersion,
-        preferredSeed,
       });
 
       // 다른 플레이어들에게 매치 준비 완료 알림
-      client.broadcast.to('temp_game_id').emit('player_ready', {
+      client.broadcast.to('auto_room').emit('player_ready', {
         playerId,
         timestamp: Date.now(),
       });
@@ -149,14 +151,14 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
     @MessageBody() data: InputEventMessage,
   ) {
     try {
-      const { playerId, seq, actions, currentPieceId, expectedDropTick } = data;
+      const { playerId, seq, actions } = data;
 
       // 입력 이벤트 처리
       const success = await this.networkSyncService.handleInputEvent(data);
 
       if (success) {
         // 다른 플레이어들에게 입력 이벤트 브로드캐스트
-        client.broadcast.to('temp_game_id').emit('input_event_received', {
+        client.broadcast.to('auto_room').emit('input_event_received', {
           playerId,
           seq,
           actions,
@@ -266,6 +268,197 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
         success: false,
         error: {
           code: error.code || 'DESYNC_REPORT_ERROR',
+          message: error.message,
+        },
+      });
+    }
+  }
+
+  // 개인 게임 관련 메시지 핸들러들
+
+  @SubscribeMessage('getPlayerGameState')
+  async handleGetPlayerGameState(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() data: { playerId: string },
+  ) {
+    try {
+      const gameState = await this.gameService.getPlayerGameState(
+        data.playerId,
+      );
+      return { success: true, gameState };
+    } catch (error) {
+      throw new WsException({
+        success: false,
+        error: {
+          code: error.code || 'GET_PLAYER_GAME_STATE_ERROR',
+          message: error.message,
+        },
+      });
+    }
+  }
+
+  @SubscribeMessage('handlePlayerInput')
+  async handlePlayerInput(
+    @ConnectedSocket() client: Socket,
+    @MessageBody()
+    data: {
+      playerId: string;
+      action: string;
+      currentPiece?: any;
+      board?: number[][];
+      score?: number;
+      level?: number;
+      linesCleared?: number;
+    },
+  ) {
+    try {
+      const gameState = await this.gameService.handlePlayerInput(
+        data.playerId,
+        {
+          action: data.action,
+          currentPiece: data.currentPiece,
+          board: data.board,
+          score: data.score,
+          level: data.level,
+          linesCleared: data.linesCleared,
+        },
+      );
+
+      if (gameState) {
+        // 클라이언트에게 업데이트된 게임 상태 전송
+        client.emit('gameStateUpdated', {
+          success: true,
+          gameState,
+          timestamp: Date.now(),
+        });
+
+        // 룸의 다른 플레이어들에게 게임 상태 변경 알림 (옵션)
+        const roomId = gameState.roomId;
+        if (roomId) {
+          client.broadcast.to(roomId).emit('playerGameStateChanged', {
+            playerId: data.playerId,
+            score: gameState.score,
+            level: gameState.level,
+            linesCleared: gameState.linesCleared,
+            timestamp: Date.now(),
+          });
+        }
+      }
+
+      return { success: true, gameState };
+    } catch (error) {
+      throw new WsException({
+        success: false,
+        error: {
+          code: error.code || 'HANDLE_PLAYER_INPUT_ERROR',
+          message: error.message,
+        },
+      });
+    }
+  }
+
+  @SubscribeMessage('updatePlayerGameState')
+  async handleUpdatePlayerGameState(
+    @ConnectedSocket() client: Socket,
+    @MessageBody()
+    data: {
+      playerId: string;
+      updates: any;
+    },
+  ) {
+    try {
+      await this.gameService.updatePlayerGameState(data.playerId, data.updates);
+      return { success: true };
+    } catch (error) {
+      throw new WsException({
+        success: false,
+        error: {
+          code: error.code || 'UPDATE_PLAYER_GAME_STATE_ERROR',
+          message: error.message,
+        },
+      });
+    }
+  }
+
+  // 자동 룸 시스템 관련 메시지 핸들러들
+
+  @SubscribeMessage('joinAutoRoom')
+  async handleJoinAutoRoom(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() data: { name: string },
+  ) {
+    try {
+      const joinGameDto: JoinGameDto = {
+        name: data.name,
+        socketId: client.id,
+      };
+
+      const { roomId, player } =
+        await this.gameService.joinGameAuto(joinGameDto);
+
+      // 룸에 참여
+      client.join(roomId);
+
+      // 다른 플레이어들에게 새 플레이어 참여 알림
+      this.server.to(roomId).emit('playerJoined', {
+        player,
+        roomId,
+      });
+
+      return { success: true, roomId, player };
+    } catch (error) {
+      throw new WsException({
+        success: false,
+        error: {
+          code: error.code || 'JOIN_AUTO_ROOM_ERROR',
+          message: error.message,
+        },
+      });
+    }
+  }
+
+  @SubscribeMessage('leaveAutoRoom')
+  async handleLeaveAutoRoom(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() data: { roomId: string; playerId: string },
+  ) {
+    try {
+      await this.gameService.leaveGameAuto(data.roomId, data.playerId);
+
+      // 클라이언트 상태 정리
+      this.networkSyncService.cleanupClientState(data.playerId);
+
+      // 룸에서 나가기
+      client.leave(data.roomId);
+
+      // 다른 플레이어들에게 플레이어 퇴장 알림
+      this.server.to(data.roomId).emit('playerLeft', {
+        playerId: data.playerId,
+        roomId: data.roomId,
+      });
+
+      return { success: true };
+    } catch (error) {
+      throw new WsException({
+        success: false,
+        error: {
+          code: error.code || 'LEAVE_AUTO_ROOM_ERROR',
+          message: error.message,
+        },
+      });
+    }
+  }
+
+  @SubscribeMessage('getRoomStats')
+  async handleGetRoomStats() {
+    try {
+      const stats = await this.gameService.getRoomStats();
+      return { success: true, stats };
+    } catch (error) {
+      throw new WsException({
+        success: false,
+        error: {
+          code: error.code || 'GET_ROOM_STATS_ERROR',
           message: error.message,
         },
       });
