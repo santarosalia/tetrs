@@ -20,7 +20,7 @@
       }
 
       .container {
-        max-width: 1400px;
+        max-width: 1200px;
         margin: 0 auto;
         background: rgba(255, 255, 255, 0.95);
         border-radius: 15px;
@@ -36,7 +36,54 @@
         text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.1);
       }
 
-      .game-controls {
+      .status-panel {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 15px;
+        margin-bottom: 30px;
+      }
+
+      .status-card {
+        background: #f8f9fa;
+        padding: 15px;
+        border-radius: 8px;
+        border: 2px solid #e9ecef;
+        text-align: center;
+      }
+
+      .status-card h4 {
+        color: #495057;
+        margin-bottom: 8px;
+        font-size: 0.9em;
+      }
+
+      .status-value {
+        font-family: monospace;
+        font-size: 14px;
+        color: #667eea;
+        font-weight: bold;
+      }
+
+      .connection-status {
+        background: #e9ecef;
+        padding: 15px;
+        border-radius: 8px;
+        margin-bottom: 20px;
+        border-left: 4px solid #667eea;
+      }
+
+      .connection-status h4 {
+        color: #495057;
+        margin-bottom: 10px;
+      }
+
+      .connection-status p {
+        margin: 5px 0;
+        font-family: monospace;
+        font-size: 12px;
+      }
+
+      .main-controls {
         display: grid;
         grid-template-columns: 1fr 1fr;
         gap: 20px;
@@ -104,50 +151,23 @@
         transform: none;
       }
 
-      .status {
-        background: #e9ecef;
-        padding: 15px;
-        border-radius: 8px;
-        margin-bottom: 20px;
-        border-left: 4px solid #667eea;
-      }
-
-      .status h4 {
-        color: #495057;
-        margin-bottom: 10px;
-      }
-
-      .status p {
-        margin: 5px 0;
-        font-family: monospace;
-        font-size: 12px;
-      }
-
-      .network-stats {
+      .input-actions {
         display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-        gap: 15px;
-        margin-bottom: 20px;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 5px;
+        margin-top: 10px;
       }
 
-      .stat-card {
-        background: #f8f9fa;
-        padding: 15px;
-        border-radius: 8px;
-        border: 2px solid #e9ecef;
+      .input-actions button {
+        font-size: 12px;
+        padding: 8px;
       }
 
-      .stat-card h5 {
-        color: #495057;
-        margin-bottom: 8px;
-        font-size: 0.9em;
-      }
-
-      .stat-value {
-        font-family: monospace;
-        font-size: 14px;
-        color: #667eea;
-        font-weight: bold;
+      .debug-controls {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 20px;
+        margin-bottom: 30px;
       }
 
       .game-area {
@@ -254,191 +274,140 @@
       .clear-logs:hover {
         background: #c82333;
       }
-
-      .input-actions {
-        display: grid;
-        grid-template-columns: repeat(3, 1fr);
-        gap: 5px;
-        margin-top: 10px;
-      }
-
-      .input-actions button {
-        font-size: 12px;
-        padding: 8px;
-      }
-
-      .protocol-section {
-        background: #f8f9fa;
-        padding: 20px;
-        border-radius: 10px;
-        border: 2px solid #e9ecef;
-        margin-bottom: 20px;
-      }
-
-      .protocol-section h3 {
-        color: #495057;
-        margin-bottom: 15px;
-        font-size: 1.2em;
-      }
     </style>
   </head>
   <body>
     <div class="container">
       <h1>🎮 Tetris Network Protocol - 테스트 페이지</h1>
 
-      <div class="status">
+      <div class="connection-status">
         <h4>🔗 연결 상태</h4>
         <p id="connectionStatus">연결 중...</p>
         <p id="gameStatus">게임 상태: 대기 중</p>
         <p id="playerInfo">플레이어: 미연결</p>
       </div>
 
-      <div class="network-stats">
-        <div class="stat-card">
-          <h5>지연 시간</h5>
-          <div class="stat-value" id="latency">0ms</div>
+      <div class="status-panel">
+        <div class="status-card">
+          <h4>지연 시간</h4>
+          <div class="status-value" id="latency">0ms</div>
         </div>
-        <div class="stat-card">
-          <h5>시계 오프셋</h5>
-          <div class="stat-value" id="clockOffset">0ms</div>
+        <div class="status-card">
+          <h4>시계 오프셋</h4>
+          <div class="status-value" id="clockOffset">0ms</div>
         </div>
-        <div class="stat-card">
-          <h5>시퀀스 번호</h5>
-          <div class="stat-value" id="sequenceNumber">0</div>
+        <div class="status-card">
+          <h4>시퀀스 번호</h4>
+          <div class="status-value" id="sequenceNumber">0</div>
         </div>
-        <div class="stat-card">
-          <h5>마지막 Ping</h5>
-          <div class="stat-value" id="lastPing">0ms</div>
+        <div class="status-card">
+          <h4>마지막 Ping</h4>
+          <div class="status-value" id="lastPing">0ms</div>
         </div>
       </div>
 
-      <div class="protocol-section">
-        <h3>🌐 네트워크 프로토콜 테스트</h3>
-        <div class="game-controls">
-          <div class="control-section">
-            <h3>🎯 게임 참여</h3>
-            <div class="form-group">
-              <label for="playerId">플레이어 ID:</label>
-              <input
-                type="text"
-                id="playerId"
-                placeholder="플레이어 ID를 입력하세요"
-                value="player123"
-              />
-            </div>
-            <div class="form-group">
-              <label for="clientVersion">클라이언트 버전:</label>
-              <input
-                type="text"
-                id="clientVersion"
-                placeholder="클라이언트 버전"
-                value="1.0.0"
-              />
-            </div>
-            <div class="form-group">
-              <label for="preferredSeed">선호 시드 (선택):</label>
-              <input type="number" id="preferredSeed" placeholder="랜덤 시드" />
-            </div>
-            <button onclick="joinGameProtocol()">게임 참여 (join_game)</button>
-            <button onclick="matchReady()">매치 준비 (match_ready)</button>
+      <div class="main-controls">
+        <div class="control-section">
+          <h3>🎯 게임 참여</h3>
+          <div class="form-group">
+            <label for="playerId">플레이어 ID:</label>
+            <input
+              type="text"
+              id="playerId"
+              placeholder="플레이어 ID를 입력하세요"
+              value="player123"
+            />
           </div>
+          <div class="form-group">
+            <label for="clientVersion">클라이언트 버전:</label>
+            <input
+              type="text"
+              id="clientVersion"
+              placeholder="클라이언트 버전"
+              value="1.0.0"
+            />
+          </div>
+          <div class="form-group">
+            <label for="preferredSeed">선호 시드 (선택):</label>
+            <input type="number" id="preferredSeed" placeholder="랜덤 시드" />
+          </div>
+          <button onclick="gameManager.joinGame()">게임 참여</button>
+          <button onclick="gameManager.matchReady()">매치 준비</button>
+        </div>
 
-          <div class="control-section">
-            <h3>🎮 입력 이벤트</h3>
-            <div class="form-group">
-              <label for="currentPieceId">현재 조각:</label>
-              <select id="currentPieceId">
-                <option value="I">I</option>
-                <option value="O">O</option>
-                <option value="T">T</option>
-                <option value="S">S</option>
-                <option value="Z">Z</option>
-                <option value="J">J</option>
-                <option value="L">L</option>
-              </select>
-            </div>
-            <div class="form-group">
-              <label for="expectedDropTick">예상 드롭 틱:</label>
-              <input type="number" id="expectedDropTick" value="125" />
-            </div>
-            <div class="input-actions">
-              <button onclick="sendInputEvent(['move_left'])">← 왼쪽</button>
-              <button onclick="sendInputEvent(['move_right'])">오른쪽 →</button>
-              <button onclick="sendInputEvent(['rotate'])">회전</button>
-              <button onclick="sendInputEvent(['soft_drop'])">
-                소프트 드롭
-              </button>
-              <button onclick="sendInputEvent(['hard_drop'])">하드 드롭</button>
-              <button onclick="sendInputEvent(['hold'])">홀드</button>
-            </div>
-            <button onclick="sendInputEvent(['move_left', 'rotate'])">
-              복합 입력
+        <div class="control-section">
+          <h3>🎮 입력 이벤트</h3>
+          <div class="form-group">
+            <label for="currentPieceId">현재 조각:</label>
+            <select id="currentPieceId">
+              <option value="I">I</option>
+              <option value="O">O</option>
+              <option value="T">T</option>
+              <option value="S">S</option>
+              <option value="Z">Z</option>
+              <option value="J">J</option>
+              <option value="L">L</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="expectedDropTick">예상 드롭 틱:</label>
+            <input type="number" id="expectedDropTick" value="125" />
+          </div>
+          <div class="input-actions">
+            <button onclick="inputManager.sendInput(['move_left'])">
+              ← 왼쪽
             </button>
+            <button onclick="inputManager.sendInput(['move_right'])">
+              오른쪽 →
+            </button>
+            <button onclick="inputManager.sendInput(['rotate'])">회전</button>
+            <button onclick="inputManager.sendInput(['soft_drop'])">
+              소프트 드롭
+            </button>
+            <button onclick="inputManager.sendInput(['hard_drop'])">
+              하드 드롭
+            </button>
+            <button onclick="inputManager.sendInput(['hold'])">홀드</button>
           </div>
+          <button onclick="inputManager.sendInput(['move_left', 'rotate'])">
+            복합 입력
+          </button>
         </div>
       </div>
 
-      <div class="game-controls">
+      <div class="debug-controls">
         <div class="control-section">
           <h3>📡 네트워크 동기화</h3>
-          <button onclick="sendPing()">Ping 전송</button>
-          <button onclick="requestSnapshot('periodic_sync')">
+          <button onclick="networkManager.sendPing()">Ping 전송</button>
+          <button onclick="networkManager.requestSnapshot('periodic_sync')">
             주기적 스냅샷
           </button>
-          <button onclick="requestSnapshot('desync_detected')">
+          <button onclick="networkManager.requestSnapshot('desync_detected')">
             Desync 스냅샷
           </button>
-          <button onclick="sendKeepalive()">Keepalive 전송</button>
-          <button onclick="sendAck('piece_placed', 'piece_123')">
+          <button onclick="networkManager.sendKeepalive()">
+            Keepalive 전송
+          </button>
+          <button onclick="networkManager.sendAck('piece_placed', 'piece_123')">
             ACK 전송
           </button>
         </div>
 
         <div class="control-section">
           <h3>🐛 디버깅</h3>
-          <button onclick="sendDesyncReport()">Desync 리포트</button>
-          <button onclick="startPeriodicPing()">주기적 Ping 시작</button>
-          <button onclick="stopPeriodicPing()">주기적 Ping 중지</button>
-          <button onclick="getNetworkStats()">네트워크 통계</button>
-          <button onclick="disconnect()">연결 해제</button>
-        </div>
-      </div>
-
-      <div class="game-controls">
-        <div class="control-section">
-          <h3>🎯 기존 API 테스트</h3>
-          <div class="form-group">
-            <label for="gameId">게임 ID:</label>
-            <input type="text" id="gameId" placeholder="게임 ID를 입력하세요" />
-          </div>
-          <div class="form-group">
-            <label for="playerName">플레이어 이름:</label>
-            <input
-              type="text"
-              id="playerName"
-              placeholder="플레이어 이름을 입력하세요"
-            />
-          </div>
-          <button onclick="joinGameLegacy()">기존 방식 게임 참여</button>
-          <button onclick="startGameLegacy()">게임 시작</button>
-        </div>
-
-        <div class="control-section">
-          <h3>📊 통계 관리</h3>
-          <div class="form-group">
-            <label for="statsPlayerId">플레이어 ID:</label>
-            <input
-              type="text"
-              id="statsPlayerId"
-              placeholder="플레이어 ID를 입력하세요"
-            />
-          </div>
-          <div class="form-group">
-            <label for="score">점수:</label>
-            <input type="number" id="score" value="1000" min="0" />
-          </div>
-          <button onclick="updateStats()">통계 업데이트</button>
-          <button onclick="eliminatePlayer()">플레이어 탈락</button>
+          <button onclick="debugManager.sendDesyncReport()">
+            Desync 리포트
+          </button>
+          <button onclick="debugManager.startPeriodicPing()">
+            주기적 Ping 시작
+          </button>
+          <button onclick="debugManager.stopPeriodicPing()">
+            주기적 Ping 중지
+          </button>
+          <button onclick="debugManager.getNetworkStats()">
+            네트워크 통계
+          </button>
+          <button onclick="debugManager.disconnect()">연결 해제</button>
         </div>
       </div>
 
@@ -453,402 +422,353 @@
         <div class="logs">
           <h4>📝 네트워크 로그</h4>
           <div id="logContainer"></div>
-          <button class="clear-logs" onclick="clearLogs()">로그 지우기</button>
+          <button class="clear-logs" onclick="logger.clearLogs()">
+            로그 지우기
+          </button>
         </div>
       </div>
     </div>
 
     <script>
+      // 모듈화된 관리자 클래스들
+      const logger = {
+        log(message, type = 'info') {
+          const logContainer = document.getElementById('logContainer');
+          const logEntry = document.createElement('div');
+          logEntry.className = `log-entry ${type}`;
+          logEntry.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+          logContainer.appendChild(logEntry);
+          logContainer.scrollTop = logContainer.scrollHeight;
+        },
+
+        clearLogs() {
+          document.getElementById('logContainer').innerHTML = '';
+        },
+      };
+
+      const gameManager = {
+        joinGame() {
+          const playerId = document.getElementById('playerId').value;
+          const clientVersion = document.getElementById('clientVersion').value;
+          const preferredSeed = document.getElementById('preferredSeed').value;
+
+          if (!playerId) {
+            logger.log('플레이어 ID를 입력하세요', 'error');
+            return;
+          }
+
+          const message = {
+            type: 'join_game',
+            playerId: playerId,
+            clientVersion: clientVersion,
+            preferredSeed: preferredSeed ? parseInt(preferredSeed) : null,
+            timestamp: networkManager.getAdjustedTime(),
+          };
+
+          socket.emit('join_game', message);
+          logger.log(`게임 참여 요청: ${JSON.stringify(message)}`, 'info');
+        },
+
+        matchReady() {
+          const playerId = document.getElementById('playerId').value;
+          const clientVersion = document.getElementById('clientVersion').value;
+          const preferredSeed = document.getElementById('preferredSeed').value;
+
+          if (!playerId) {
+            logger.log('플레이어 ID를 입력하세요', 'error');
+            return;
+          }
+
+          const message = {
+            type: 'match_ready',
+            playerId: playerId,
+            clientVersion: clientVersion,
+            preferredSeed: preferredSeed ? parseInt(preferredSeed) : null,
+            timestamp: networkManager.getAdjustedTime(),
+          };
+
+          socket.emit('match_ready', message);
+          logger.log(`매치 준비 요청: ${JSON.stringify(message)}`, 'info');
+        },
+      };
+
+      const inputManager = {
+        sendInput(actions) {
+          const playerId = document.getElementById('playerId').value;
+          const currentPieceId =
+            document.getElementById('currentPieceId').value;
+          const expectedDropTick = parseInt(
+            document.getElementById('expectedDropTick').value,
+          );
+
+          if (!playerId) {
+            logger.log('플레이어 ID를 입력하세요', 'error');
+            return;
+          }
+
+          const message = {
+            type: 'input_event',
+            playerId: playerId,
+            seq: ++networkManager.sequenceNumber,
+            actions: actions,
+            currentPieceId: currentPieceId,
+            expectedDropTick: expectedDropTick,
+            timestamp: networkManager.getAdjustedTime(),
+          };
+
+          socket.emit('input_event', message);
+          logger.log(`입력 이벤트 전송: ${JSON.stringify(message)}`, 'info');
+          networkManager.updateSequenceNumber();
+        },
+      };
+
+      const networkManager = {
+        sequenceNumber: 0,
+        lastPingTime: 0,
+        latency: 0,
+        clockOffset: 0,
+
+        getAdjustedTime() {
+          return Date.now() + this.clockOffset;
+        },
+
+        sendPing() {
+          const playerId = document.getElementById('playerId').value;
+          this.lastPingTime = Date.now();
+
+          const message = {
+            type: 'ping',
+            playerId: playerId,
+            clientSendTime: this.lastPingTime,
+            timestamp: this.getAdjustedTime(),
+          };
+
+          socket.emit('ping', message);
+          logger.log(`Ping 전송: ${JSON.stringify(message)}`, 'info');
+        },
+
+        requestSnapshot(reason) {
+          const playerId = document.getElementById('playerId').value;
+
+          if (!playerId) {
+            logger.log('플레이어 ID를 입력하세요', 'error');
+            return;
+          }
+
+          const message = {
+            type: 'snapshot_request',
+            playerId: playerId,
+            reason: reason,
+            localSeq: this.sequenceNumber,
+            timestamp: this.getAdjustedTime(),
+          };
+
+          socket.emit('snapshot_request', message);
+          logger.log(`스냅샷 요청: ${JSON.stringify(message)}`, 'info');
+        },
+
+        sendAck(ackType, referenceId) {
+          const playerId = document.getElementById('playerId').value;
+
+          if (!playerId) {
+            logger.log('플레이어 ID를 입력하세요', 'error');
+            return;
+          }
+
+          const message = {
+            type: 'ack',
+            playerId: playerId,
+            ackType: ackType,
+            referenceId: referenceId,
+            timestamp: this.getAdjustedTime(),
+          };
+
+          socket.emit('ack', message);
+          logger.log(`ACK 전송: ${JSON.stringify(message)}`, 'info');
+        },
+
+        sendKeepalive() {
+          const playerId = document.getElementById('playerId').value;
+
+          if (!playerId) {
+            logger.log('플레이어 ID를 입력하세요', 'error');
+            return;
+          }
+
+          const message = {
+            type: 'keepalive',
+            playerId: playerId,
+            timestamp: this.getAdjustedTime(),
+          };
+
+          socket.emit('keepalive', message);
+          logger.log(`Keepalive 전송: ${JSON.stringify(message)}`, 'info');
+        },
+
+        handlePong(pongMessage) {
+          const { clientSendTime, serverReceiveTime, serverSendTime } =
+            pongMessage;
+          const clientReceiveTime = Date.now();
+
+          const rtt = clientReceiveTime - clientSendTime;
+          this.latency = rtt / 2;
+
+          const serverTime = serverReceiveTime + this.latency;
+          this.clockOffset = serverTime - clientReceiveTime;
+
+          logger.log(
+            `Ping/Pong 처리 - RTT: ${rtt}ms, 지연: ${this.latency}ms, 오프셋: ${this.clockOffset}ms`,
+            'success',
+          );
+          this.updateNetworkStats();
+        },
+
+        updateNetworkStats() {
+          document.getElementById('latency').textContent = `${this.latency}ms`;
+          document.getElementById('clockOffset').textContent =
+            `${this.clockOffset}ms`;
+          document.getElementById('sequenceNumber').textContent =
+            this.sequenceNumber;
+          document.getElementById('lastPing').textContent = this.lastPingTime
+            ? `${Date.now() - this.lastPingTime}ms`
+            : '0ms';
+        },
+
+        updateSequenceNumber() {
+          document.getElementById('sequenceNumber').textContent =
+            this.sequenceNumber;
+        },
+      };
+
+      const debugManager = {
+        pingInterval: null,
+        keepaliveInterval: null,
+
+        sendDesyncReport() {
+          const playerId = document.getElementById('playerId').value;
+
+          if (!playerId) {
+            logger.log('플레이어 ID를 입력하세요', 'error');
+            return;
+          }
+
+          const message = {
+            type: 'desync_report',
+            playerId: playerId,
+            localState: {
+              board: 'sample_board_state',
+              currentPiece: 'T',
+              score: 10000,
+              seq: networkManager.sequenceNumber,
+            },
+            serverStateExpectedSeq: networkManager.sequenceNumber + 20,
+            difference: 'piece_position_mismatch',
+            timestamp: networkManager.getAdjustedTime(),
+          };
+
+          socket.emit('desync_report', message);
+          logger.log(
+            `Desync 리포트 전송: ${JSON.stringify(message)}`,
+            'warning',
+          );
+        },
+
+        startPeriodicPing() {
+          if (this.pingInterval) {
+            clearInterval(this.pingInterval);
+          }
+          this.pingInterval = setInterval(() => {
+            networkManager.sendPing();
+          }, 2000);
+          logger.log('주기적 Ping 시작 (2초마다)', 'info');
+        },
+
+        stopPeriodicPing() {
+          if (this.pingInterval) {
+            clearInterval(this.pingInterval);
+            this.pingInterval = null;
+            logger.log('주기적 Ping 중지', 'info');
+          }
+        },
+
+        getNetworkStats() {
+          const stats = {
+            latency: networkManager.latency,
+            clockOffset: networkManager.clockOffset,
+            sequenceNumber: networkManager.sequenceNumber,
+            lastPingTime: networkManager.lastPingTime,
+          };
+          logger.log(`네트워크 통계: ${JSON.stringify(stats)}`, 'info');
+          return stats;
+        },
+
+        disconnect() {
+          this.stopPeriodicTasks();
+          socket.disconnect();
+          logger.log('연결 해제됨', 'info');
+        },
+
+        stopPeriodicTasks() {
+          this.stopPeriodicPing();
+          if (this.keepaliveInterval) {
+            clearInterval(this.keepaliveInterval);
+            this.keepaliveInterval = null;
+          }
+        },
+      };
+
       // Socket.IO 연결
       const socket = io();
       let currentGameId = null;
       let currentPlayerId = null;
-      let sequenceNumber = 0;
-      let lastPingTime = 0;
-      let latency = 0;
-      let clockOffset = 0;
-      let pingInterval = null;
-      let keepaliveInterval = null;
 
       // 연결 상태 관리
       socket.on('connect', () => {
         updateConnectionStatus('연결됨', 'success');
-        log('WebSocket 연결 성공', 'success');
+        logger.log('WebSocket 연결 성공', 'success');
         updatePlayerInfo('연결됨');
       });
 
       socket.on('disconnect', () => {
         updateConnectionStatus('연결 끊김', 'error');
-        log('WebSocket 연결 끊김', 'error');
+        logger.log('WebSocket 연결 끊김', 'error');
         updatePlayerInfo('연결 끊김');
-        stopPeriodicTasks();
+        debugManager.stopPeriodicTasks();
       });
 
-      // 새로운 네트워크 프로토콜 이벤트 리스너
+      // 네트워크 프로토콜 이벤트 리스너
       socket.on('join_game_response', (response) => {
-        log(`게임 참여 응답: ${JSON.stringify(response)}`, 'success');
+        logger.log(`게임 참여 응답: ${JSON.stringify(response)}`, 'success');
         currentPlayerId = response.playerId;
         updatePlayerInfo(`플레이어: ${currentPlayerId}`);
       });
 
       socket.on('player_ready', (data) => {
-        log(`플레이어 준비 완료: ${data.playerId}`, 'info');
+        logger.log(`플레이어 준비 완료: ${data.playerId}`, 'info');
       });
 
       socket.on('input_event_received', (data) => {
-        log(`입력 이벤트 수신: ${JSON.stringify(data)}`, 'info');
+        logger.log(`입력 이벤트 수신: ${JSON.stringify(data)}`, 'info');
       });
 
       socket.on('pong', (pongMessage) => {
-        handlePong(pongMessage);
+        networkManager.handlePong(pongMessage);
       });
 
       socket.on('state_snapshot', (snapshot) => {
-        log(`상태 스냅샷 수신: ${JSON.stringify(snapshot)}`, 'success');
+        logger.log(`상태 스냅샷 수신: ${JSON.stringify(snapshot)}`, 'success');
         updateTetrisBoardFromSnapshot(snapshot);
       });
 
       socket.on('game_state_update', (update) => {
-        log(`게임 상태 업데이트: ${JSON.stringify(update)}`, 'info');
+        logger.log(`게임 상태 업데이트: ${JSON.stringify(update)}`, 'info');
       });
 
       socket.on('attack_event', (attack) => {
-        log(`공격 이벤트: ${JSON.stringify(attack)}`, 'warning');
+        logger.log(`공격 이벤트: ${JSON.stringify(attack)}`, 'warning');
       });
-
-      // 기존 이벤트 리스너들
-      socket.on('playerJoined', (data) => {
-        log(
-          `플레이어 참가: ${data.player.name} (${data.player.id})`,
-          'success',
-        );
-        updateGameStatus('플레이어 참가됨');
-      });
-
-      socket.on('gameStarted', (data) => {
-        log(`게임 시작: ${data.gameId}`, 'success');
-        updateGameStatus('게임 진행 중');
-      });
-
-      socket.on('playerEliminated', (data) => {
-        log(`플레이어 탈락: ${data.player.name}`, 'info');
-      });
-
-      socket.on('statsUpdated', (data) => {
-        log(
-          `통계 업데이트: ${data.player.name} - 점수: ${data.player.score}`,
-          'info',
-        );
-      });
-
-      // 네트워크 프로토콜 함수들
-      function joinGameProtocol() {
-        const playerId = document.getElementById('playerId').value;
-        const clientVersion = document.getElementById('clientVersion').value;
-        const preferredSeed = document.getElementById('preferredSeed').value;
-
-        if (!playerId) {
-          log('플레이어 ID를 입력하세요', 'error');
-          return;
-        }
-
-        const message = {
-          type: 'join_game',
-          playerId: playerId,
-          clientVersion: clientVersion,
-          preferredSeed: preferredSeed ? parseInt(preferredSeed) : null,
-          timestamp: getAdjustedTime(),
-        };
-
-        socket.emit('join_game', message);
-        log(`게임 참여 요청: ${JSON.stringify(message)}`, 'info');
-      }
-
-      function matchReady() {
-        const playerId = document.getElementById('playerId').value;
-        const clientVersion = document.getElementById('clientVersion').value;
-        const preferredSeed = document.getElementById('preferredSeed').value;
-
-        if (!playerId) {
-          log('플레이어 ID를 입력하세요', 'error');
-          return;
-        }
-
-        const message = {
-          type: 'match_ready',
-          playerId: playerId,
-          clientVersion: clientVersion,
-          preferredSeed: preferredSeed ? parseInt(preferredSeed) : null,
-          timestamp: getAdjustedTime(),
-        };
-
-        socket.emit('match_ready', message);
-        log(`매치 준비 요청: ${JSON.stringify(message)}`, 'info');
-      }
-
-      function sendInputEvent(actions) {
-        const playerId = document.getElementById('playerId').value;
-        const currentPieceId = document.getElementById('currentPieceId').value;
-        const expectedDropTick = parseInt(
-          document.getElementById('expectedDropTick').value,
-        );
-
-        if (!playerId) {
-          log('플레이어 ID를 입력하세요', 'error');
-          return;
-        }
-
-        const message = {
-          type: 'input_event',
-          playerId: playerId,
-          seq: ++sequenceNumber,
-          actions: actions,
-          currentPieceId: currentPieceId,
-          expectedDropTick: expectedDropTick,
-          timestamp: getAdjustedTime(),
-        };
-
-        socket.emit('input_event', message);
-        log(`입력 이벤트 전송: ${JSON.stringify(message)}`, 'info');
-        updateSequenceNumber();
-      }
-
-      function sendPing() {
-        const playerId = document.getElementById('playerId').value;
-        lastPingTime = Date.now();
-
-        const message = {
-          type: 'ping',
-          playerId: playerId,
-          clientSendTime: lastPingTime,
-          timestamp: getAdjustedTime(),
-        };
-
-        socket.emit('ping', message);
-        log(`Ping 전송: ${JSON.stringify(message)}`, 'info');
-      }
-
-      function requestSnapshot(reason) {
-        const playerId = document.getElementById('playerId').value;
-
-        if (!playerId) {
-          log('플레이어 ID를 입력하세요', 'error');
-          return;
-        }
-
-        const message = {
-          type: 'snapshot_request',
-          playerId: playerId,
-          reason: reason,
-          localSeq: sequenceNumber,
-          timestamp: getAdjustedTime(),
-        };
-
-        socket.emit('snapshot_request', message);
-        log(`스냅샷 요청: ${JSON.stringify(message)}`, 'info');
-      }
-
-      function sendAck(ackType, referenceId) {
-        const playerId = document.getElementById('playerId').value;
-
-        if (!playerId) {
-          log('플레이어 ID를 입력하세요', 'error');
-          return;
-        }
-
-        const message = {
-          type: 'ack',
-          playerId: playerId,
-          ackType: ackType,
-          referenceId: referenceId,
-          timestamp: getAdjustedTime(),
-        };
-
-        socket.emit('ack', message);
-        log(`ACK 전송: ${JSON.stringify(message)}`, 'info');
-      }
-
-      function sendKeepalive() {
-        const playerId = document.getElementById('playerId').value;
-
-        if (!playerId) {
-          log('플레이어 ID를 입력하세요', 'error');
-          return;
-        }
-
-        const message = {
-          type: 'keepalive',
-          playerId: playerId,
-          timestamp: getAdjustedTime(),
-        };
-
-        socket.emit('keepalive', message);
-        log(`Keepalive 전송: ${JSON.stringify(message)}`, 'info');
-      }
-
-      function sendDesyncReport() {
-        const playerId = document.getElementById('playerId').value;
-
-        if (!playerId) {
-          log('플레이어 ID를 입력하세요', 'error');
-          return;
-        }
-
-        const message = {
-          type: 'desync_report',
-          playerId: playerId,
-          localState: {
-            board: 'sample_board_state',
-            currentPiece: 'T',
-            score: 10000,
-            seq: sequenceNumber,
-          },
-          serverStateExpectedSeq: sequenceNumber + 20,
-          difference: 'piece_position_mismatch',
-          timestamp: getAdjustedTime(),
-        };
-
-        socket.emit('desync_report', message);
-        log(`Desync 리포트 전송: ${JSON.stringify(message)}`, 'warning');
-      }
-
-      function startPeriodicPing() {
-        if (pingInterval) {
-          clearInterval(pingInterval);
-        }
-        pingInterval = setInterval(() => {
-          sendPing();
-        }, 2000);
-        log('주기적 Ping 시작 (2초마다)', 'info');
-      }
-
-      function stopPeriodicPing() {
-        if (pingInterval) {
-          clearInterval(pingInterval);
-          pingInterval = null;
-          log('주기적 Ping 중지', 'info');
-        }
-      }
-
-      function startPeriodicKeepalive() {
-        if (keepaliveInterval) {
-          clearInterval(keepaliveInterval);
-        }
-        keepaliveInterval = setInterval(() => {
-          sendKeepalive();
-        }, 30000);
-        log('주기적 Keepalive 시작 (30초마다)', 'info');
-      }
-
-      function stopPeriodicKeepalive() {
-        if (keepaliveInterval) {
-          clearInterval(keepaliveInterval);
-          keepaliveInterval = null;
-          log('주기적 Keepalive 중지', 'info');
-        }
-      }
-
-      function stopPeriodicTasks() {
-        stopPeriodicPing();
-        stopPeriodicKeepalive();
-      }
-
-      function getNetworkStats() {
-        const stats = {
-          latency: latency,
-          clockOffset: clockOffset,
-          sequenceNumber: sequenceNumber,
-          lastPingTime: lastPingTime,
-        };
-        log(`네트워크 통계: ${JSON.stringify(stats)}`, 'info');
-        return stats;
-      }
-
-      function disconnect() {
-        stopPeriodicTasks();
-        socket.disconnect();
-        log('연결 해제됨', 'info');
-      }
-
-      // 이벤트 핸들러들
-      function handlePong(pongMessage) {
-        const { clientSendTime, serverReceiveTime, serverSendTime } =
-          pongMessage;
-        const clientReceiveTime = Date.now();
-
-        // 왕복 지연 시간 계산
-        const rtt = clientReceiveTime - clientSendTime;
-        latency = rtt / 2;
-
-        // 시계 오프셋 계산
-        const serverTime = serverReceiveTime + latency;
-        clockOffset = serverTime - clientReceiveTime;
-
-        log(
-          `Ping/Pong 처리 - RTT: ${rtt}ms, 지연: ${latency}ms, 오프셋: ${clockOffset}ms`,
-          'success',
-        );
-        updateNetworkStats();
-      }
-
-      function updateTetrisBoardFromSnapshot(snapshot) {
-        // 스냅샷에서 보드 상태 업데이트
-        log(`보드 업데이트: ${snapshot.currentPiece} 조각`, 'info');
-        // 실제 구현에서는 보드 상태를 파싱하여 업데이트
-      }
-
-      // 기존 API 함수들
-      function joinGameLegacy() {
-        const gameId = document.getElementById('gameId').value;
-        const playerName = document.getElementById('playerName').value;
-
-        if (!gameId || !playerName) {
-          log('게임 ID와 플레이어 이름을 입력하세요', 'error');
-          return;
-        }
-
-        socket.emit('joinGame', { gameId, name: playerName });
-      }
-
-      function startGameLegacy() {
-        const gameId = document.getElementById('gameId').value;
-
-        if (!gameId) {
-          log('게임 ID를 입력하세요', 'error');
-          return;
-        }
-
-        socket.emit('startGame', { gameId });
-      }
-
-      function updateStats() {
-        const playerId = document.getElementById('statsPlayerId').value;
-        const score = parseInt(document.getElementById('score').value);
-
-        if (!playerId) {
-          log('플레이어 ID를 입력하세요', 'error');
-          return;
-        }
-
-        socket.emit('updateStats', { playerId, score });
-      }
-
-      function eliminatePlayer() {
-        const playerId = document.getElementById('statsPlayerId').value;
-
-        if (!playerId) {
-          log('플레이어 ID를 입력하세요', 'error');
-          return;
-        }
-
-        socket.emit('playerEliminated', { playerId });
-      }
 
       // 유틸리티 함수들
-      function getAdjustedTime() {
-        return Date.now() + clockOffset;
-      }
-
       function updateConnectionStatus(status, type) {
         const statusElement = document.getElementById('connectionStatus');
         statusElement.textContent = status;
@@ -864,30 +784,8 @@
         document.getElementById('playerInfo').textContent = info;
       }
 
-      function updateNetworkStats() {
-        document.getElementById('latency').textContent = `${latency}ms`;
-        document.getElementById('clockOffset').textContent = `${clockOffset}ms`;
-        document.getElementById('sequenceNumber').textContent = sequenceNumber;
-        document.getElementById('lastPing').textContent = lastPingTime
-          ? `${Date.now() - lastPingTime}ms`
-          : '0ms';
-      }
-
-      function updateSequenceNumber() {
-        document.getElementById('sequenceNumber').textContent = sequenceNumber;
-      }
-
-      function log(message, type = 'info') {
-        const logContainer = document.getElementById('logContainer');
-        const logEntry = document.createElement('div');
-        logEntry.className = `log-entry ${type}`;
-        logEntry.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
-        logContainer.appendChild(logEntry);
-        logContainer.scrollTop = logContainer.scrollHeight;
-      }
-
-      function clearLogs() {
-        document.getElementById('logContainer').innerHTML = '';
+      function updateTetrisBoardFromSnapshot(snapshot) {
+        logger.log(`보드 업데이트: ${snapshot.currentPiece} 조각`, 'info');
       }
 
       // 테트리스 보드 초기화
@@ -908,8 +806,8 @@
       // 페이지 로드 시 초기화
       document.addEventListener('DOMContentLoaded', () => {
         initializeTetrisBoard();
-        updateNetworkStats();
-        log('Tetris Network Protocol 테스트 페이지 로드됨', 'success');
+        networkManager.updateNetworkStats();
+        logger.log('Tetris Network Protocol 테스트 페이지 로드됨', 'success');
       });
     </script>
   </body>
