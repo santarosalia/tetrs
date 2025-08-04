@@ -102,6 +102,15 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
         roomId,
       });
 
+      // 룸의 모든 클라이언트에게 업데이트된 플레이어 목록 전송
+      const roomPlayers = await this.gameService.getRoomPlayers(roomId);
+      this.server.to(roomId).emit('roomPlayersUpdate', {
+        success: true,
+        players: roomPlayers,
+        roomId,
+        timestamp: Date.now(),
+      });
+
       return response;
     } catch (error) {
       throw new WsException({
@@ -342,6 +351,25 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
             linesCleared: gameState.linesCleared,
             timestamp: Date.now(),
           });
+
+          // 게임 오버 시 모든 플레이어 정보 업데이트
+          if (gameState.gameOver) {
+            this.logger.log(
+              `게임 오버로 인한 룸 플레이어 정보 업데이트: ${roomId}`,
+              {
+                roomId,
+                playerId: data.playerId,
+              },
+            );
+
+            const roomPlayers = await this.gameService.getRoomPlayers(roomId);
+            this.server.to(roomId).emit('roomPlayersUpdate', {
+              success: true,
+              players: roomPlayers,
+              roomId,
+              timestamp: Date.now(),
+            });
+          }
         }
       }
 
@@ -399,14 +427,83 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
       // 룸에 참여
       client.join(roomId);
 
-      // 다른 플레이어들에게 새 플레이어 참여 알림
+      // 기존 플레이어들의 게임 상태 조회
+      const existingPlayers = await this.gameService.getRoomPlayers(roomId);
+
+      // 신규 플레이어에게 기존 플레이어들의 상태 전송
+      client.emit('existingPlayersState', {
+        success: true,
+        players: existingPlayers.filter((p) => p.id !== player.id), // 자신 제외
+        roomId,
+        timestamp: Date.now(),
+      });
+
+      // 신규 플레이어에게 룸의 전체 게임 상태 전송
+      const roomGameState = await this.gameService.getRoomGameState(roomId);
+      if (roomGameState) {
+        client.emit('roomGameState', {
+          success: true,
+          gameState: roomGameState,
+          roomId,
+          timestamp: Date.now(),
+        });
+      }
+
+      // 룸의 모든 클라이언트에게 업데이트된 플레이어 목록 전송
+      const roomPlayers = await this.gameService.getRoomPlayers(roomId);
+
+      // 기존 플레이어들에게 새 플레이어 참여 알림과 함께 최신 방 상태 전송
       this.server.to(roomId).emit('playerJoined', {
         player,
         roomId,
+        roomState: {
+          players: roomPlayers,
+          gameState: roomGameState,
+          timestamp: Date.now(),
+        },
       });
+
+      // 룸의 모든 클라이언트에게 업데이트된 플레이어 목록 전송
+      this.server.to(roomId).emit('roomPlayersUpdate', {
+        success: true,
+        players: roomPlayers,
+        roomId,
+        timestamp: Date.now(),
+      });
+
+      // 기존 플레이어들에게 전체 방 상태 업데이트 알림
+      this.server.to(roomId).emit('roomStateUpdate', {
+        success: true,
+        roomId,
+        players: roomPlayers,
+        gameState: roomGameState,
+        newPlayer: player,
+        timestamp: Date.now(),
+      });
+
+      // 클라이언트에게 응답 전송
+      client.emit('joinAutoRoomResponse', { success: true, roomId, player });
+
+      this.logger.log(
+        `신규 플레이어 ${player.name}이 룸 ${roomId}에 입장했습니다. 기존 플레이어 ${existingPlayers.length - 1}명`,
+        {
+          roomId,
+          newPlayerId: player.id,
+          existingPlayerCount: existingPlayers.length - 1,
+        },
+      );
 
       return { success: true, roomId, player };
     } catch (error) {
+      // 에러 응답도 클라이언트에게 전송
+      client.emit('joinAutoRoomResponse', {
+        success: false,
+        error: {
+          code: error.code || 'JOIN_AUTO_ROOM_ERROR',
+          message: error.message,
+        },
+      });
+
       throw new WsException({
         success: false,
         error: {
@@ -437,6 +534,15 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
         roomId: data.roomId,
       });
 
+      // 룸의 모든 클라이언트에게 업데이트된 플레이어 목록 전송
+      const roomPlayers = await this.gameService.getRoomPlayers(data.roomId);
+      this.server.to(data.roomId).emit('roomPlayersUpdate', {
+        success: true,
+        players: roomPlayers,
+        roomId: data.roomId,
+        timestamp: Date.now(),
+      });
+
       return { success: true };
     } catch (error) {
       throw new WsException({
@@ -459,6 +565,53 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
         success: false,
         error: {
           code: error.code || 'GET_ROOM_STATS_ERROR',
+          message: error.message,
+        },
+      });
+    }
+  }
+
+  @SubscribeMessage('getRoomPlayers')
+  async handleGetRoomPlayers(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() data: { roomId: string },
+  ) {
+    try {
+      const players = await this.gameService.getRoomPlayers(data.roomId);
+
+      // 클라이언트에게 플레이어 정보 전송
+      client.emit('roomPlayersUpdate', {
+        success: true,
+        players,
+        roomId: data.roomId,
+        timestamp: Date.now(),
+      });
+
+      return { success: true, players };
+    } catch (error) {
+      throw new WsException({
+        success: false,
+        error: {
+          code: error.code || 'GET_ROOM_PLAYERS_ERROR',
+          message: error.message,
+        },
+      });
+    }
+  }
+
+  @SubscribeMessage('getPlayerInfo')
+  async handleGetPlayerInfo(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() data: { playerId: string },
+  ) {
+    try {
+      const playerInfo = await this.gameService.getPlayerInfo(data.playerId);
+      return { success: true, playerInfo };
+    } catch (error) {
+      throw new WsException({
+        success: false,
+        error: {
+          code: error.code || 'GET_PLAYER_INFO_ERROR',
           message: error.message,
         },
       });

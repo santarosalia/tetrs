@@ -211,6 +211,20 @@ export class RedisService implements OnModuleDestroy {
     return players;
   }
 
+  async getAllPlayers(): Promise<PlayerState[]> {
+    const playerIds = await this.redis.smembers('players');
+    const players: PlayerState[] = [];
+
+    for (const playerId of playerIds) {
+      const player = await this.getPlayer(playerId);
+      if (player) {
+        players.push(player);
+      }
+    }
+
+    return players;
+  }
+
   async deletePlayer(playerId: string): Promise<void> {
     const player = await this.getPlayer(playerId);
     if (player && player.gameId) {

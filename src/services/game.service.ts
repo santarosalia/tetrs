@@ -129,10 +129,10 @@ export class GameService {
    */
   async joinGameAuto(joinGameDto: JoinGameDto) {
     try {
-      // 1. 대기 중인 룸 찾기
+      // 1. 게임 중인 방 우선 찾기, 없으면 대기 중인 방 찾기
       let availableRoom = await this.findAvailableRoom();
 
-      // 2. 대기 중인 룸이 없으면 새 룸 생성
+      // 2. 사용 가능한 룸이 없으면 새 룸 생성
       if (!availableRoom) {
         availableRoom = await this.createNewRoom();
         this.logger.log(`새 게임 룸 생성: ${availableRoom.id}`, {
@@ -710,12 +710,28 @@ export class GameService {
     try {
       const allRooms = await this.getAllRooms();
 
-      // 대기 중이고 플레이어 수가 99명 미만인 룸 찾기
-      const availableRoom = allRooms.find(
+      // 1. 게임 중인 방 중에서 플레이어 수가 99명 미만인 룸 찾기 (우선순위 1)
+      let availableRoom = allRooms.find(
         (room) =>
-          room.status === 'WAITING' &&
+          room.status === 'PLAYING' &&
           room.currentPlayers < this.MAX_PLAYERS_PER_ROOM,
       );
+
+      // 2. 게임 중인 방이 없으면, 대기 중이고 플레이어 수가 99명 미만인 룸 찾기 (우선순위 2)
+      if (!availableRoom) {
+        availableRoom = allRooms.find(
+          (room) =>
+            room.status === 'WAITING' &&
+            room.currentPlayers < this.MAX_PLAYERS_PER_ROOM,
+        );
+      }
+
+      // 3. 대기 중인 방도 없으면, 어떤 상태든 플레이어 수가 99명 미만인 룸 찾기 (우선순위 3)
+      if (!availableRoom) {
+        availableRoom = allRooms.find(
+          (room) => room.currentPlayers < this.MAX_PLAYERS_PER_ROOM,
+        );
+      }
 
       return availableRoom || null;
     } catch (error) {
@@ -1163,6 +1179,186 @@ export class GameService {
         playingRooms: 0,
         totalPlayers: 0,
       };
+    }
+  }
+
+  /**
+   * 룸의 전체 게임 상태 조회
+   */
+  async getRoomGameState(roomId: string): Promise<any> {
+    try {
+      const room = await this.getRoom(roomId);
+      if (!room) {
+        return null;
+      }
+
+      const roomPlayers = await this.getRoomPlayers(roomId);
+
+      // 게임 진행 상황 분석
+      const activePlayers = roomPlayers.filter(
+        (p) => p.gameState && !p.gameState.gameOver,
+      );
+      const finishedPlayers = roomPlayers.filter(
+        (p) => p.gameState && p.gameState.gameOver,
+      );
+
+      const gameState = {
+        roomId,
+        totalPlayers: roomPlayers.length,
+        activePlayers: activePlayers.length,
+        finishedPlayers: finishedPlayers.length,
+        gameStarted: activePlayers.some((p) => p.gameState?.gameStarted),
+        gameOver: activePlayers.length === 0 && finishedPlayers.length > 0,
+        players: roomPlayers,
+        // 추가 상세 정보
+        roomStatus:
+          activePlayers.length === 0
+            ? 'WAITING'
+            : activePlayers.some((p) => p.gameState?.gameStarted)
+              ? 'PLAYING'
+              : 'READY',
+        averageScore:
+          activePlayers.length > 0
+            ? Math.round(
+                activePlayers.reduce(
+                  (sum, p) => sum + (p.gameState?.score || 0),
+                  0,
+                ) / activePlayers.length,
+              )
+            : 0,
+        highestScore:
+          activePlayers.length > 0
+            ? Math.max(...activePlayers.map((p) => p.gameState?.score || 0))
+            : 0,
+        timestamp: Date.now(),
+      };
+
+      this.logger.log(`룸 ${roomId} 게임 상태 조회`, {
+        roomId,
+        totalPlayers: gameState.totalPlayers,
+        activePlayers: gameState.activePlayers,
+        gameStarted: gameState.gameStarted,
+        gameOver: gameState.gameOver,
+      });
+
+      return gameState;
+    } catch (error) {
+      this.logger.log(`룸 게임 상태 조회 실패: ${error.message}`, {
+        error,
+        roomId,
+      });
+      return null;
+    }
+  }
+
+  /**
+   * 룸의 모든 플레이어 정보 가져오기
+   */
+  async getRoomPlayers(
+    roomId: string,
+    includeGameState: boolean = true,
+  ): Promise<any[]> {
+    try {
+      const room = await this.getRoom(roomId);
+      if (!room) {
+        throw new Error(`룸 ${roomId}을 찾을 수 없습니다.`);
+      }
+
+      // Redis에서 해당 룸의 모든 플레이어 가져오기
+      const allPlayers = await this.redisService.getAllPlayers();
+      const roomPlayers = allPlayers.filter(
+        (player) => player.gameId === roomId,
+      );
+
+      // 게임 상태 정보 포함 여부에 따라 처리
+      let playersWithGameState = roomPlayers;
+
+      if (includeGameState) {
+        // 각 플레이어의 게임 상태 정보도 포함
+        playersWithGameState = await Promise.all(
+          roomPlayers.map(async (player) => {
+            const gameState = await this.getPlayerGameState(player.id);
+            return {
+              ...player,
+              gameState: gameState
+                ? {
+                    score: gameState.score,
+                    level: gameState.level,
+                    linesCleared: gameState.linesCleared,
+                    gameOver: gameState.gameOver,
+                    gameStarted: gameState.gameStarted,
+                  }
+                : null,
+            };
+          }),
+        );
+      }
+
+      // 로그 레벨을 낮추고 호출 빈도 제한
+      if (process.env.NODE_ENV === 'development') {
+        this.logger.log(
+          `룸 ${roomId}의 플레이어 목록 조회: ${playersWithGameState.length}명`,
+          {
+            roomId,
+            playerCount: playersWithGameState.length,
+            includeGameState,
+          },
+        );
+      }
+
+      return playersWithGameState;
+    } catch (error) {
+      this.logger.log(`룸 플레이어 조회 실패: ${error.message}`, {
+        error,
+        roomId,
+      });
+      return [];
+    }
+  }
+
+  /**
+   * 개별 플레이어 정보 가져오기
+   */
+  async getPlayerInfo(playerId: string): Promise<any> {
+    try {
+      const player = await this.redisService.getPlayer(playerId);
+      if (!player) {
+        throw new Error(`플레이어 ${playerId}을 찾을 수 없습니다.`);
+      }
+
+      const gameState = await this.getPlayerGameState(playerId);
+
+      const playerInfo = {
+        ...player,
+        gameState: gameState
+          ? {
+              score: gameState.score,
+              level: gameState.level,
+              linesCleared: gameState.linesCleared,
+              gameOver: gameState.gameOver,
+              gameStarted: gameState.gameStarted,
+              currentPiece: gameState.currentPiece,
+              nextPiece: gameState.nextPiece,
+              heldPiece: gameState.heldPiece,
+              canHold: gameState.canHold,
+              board: gameState.board,
+              paused: gameState.paused,
+            }
+          : null,
+      };
+
+      this.logger.log(`플레이어 ${playerId} 정보 조회`, {
+        playerId,
+        playerName: player.name,
+      });
+
+      return playerInfo;
+    } catch (error) {
+      this.logger.log(`플레이어 정보 조회 실패: ${error.message}`, {
+        error,
+        playerId,
+      });
+      throw error;
     }
   }
 }
