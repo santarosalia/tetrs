@@ -321,10 +321,27 @@ export class GameService {
         throw new Error('게임이 시작되지 않았습니다');
       }
 
-      // 입력에 따른 게임 상태 업데이트
+      // 클라이언트에서 전송한 데이터로 게임 상태 업데이트
       const updates: Partial<PlayerGameState> = {
         lastActivity: new Date(),
       };
+
+      // 클라이언트에서 전송한 게임 상태 데이터가 있으면 우선 적용
+      if (input.board) {
+        updates.board = input.board;
+      }
+      if (input.currentPiece) {
+        updates.currentPiece = input.currentPiece;
+      }
+      if (input.score !== undefined) {
+        updates.score = input.score;
+      }
+      if (input.level !== undefined) {
+        updates.level = input.level;
+      }
+      if (input.linesCleared !== undefined) {
+        updates.linesCleared = input.linesCleared;
+      }
 
       if (input.action === 'move_left') {
         const movedPiece = this.tetrisLogic.moveTetromino(

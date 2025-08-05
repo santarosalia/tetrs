@@ -353,7 +353,18 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
         // 클라이언트에게 업데이트된 게임 상태 전송
         client.emit('gameStateUpdated', {
           success: true,
-          gameState,
+          gameState: {
+            board: gameState.board,
+            currentPiece: gameState.currentPiece,
+            nextPiece: gameState.nextPiece,
+            heldPiece: gameState.heldPiece,
+            score: gameState.score,
+            level: gameState.level,
+            linesCleared: gameState.linesCleared,
+            gameOver: gameState.gameOver,
+            paused: gameState.paused,
+            canHold: gameState.canHold,
+          },
           timestamp: Date.now(),
         });
 
@@ -382,9 +393,17 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
             },
           );
 
+          // 룸의 다른 플레이어들에게 게임 상태 변경 알림
           client.broadcast
             .to(roomId)
             .emit('playerGameStateChanged', gameStateUpdate);
+
+          // 클라이언트에게도 업데이트된 게임 상태 전송
+          client.emit('gameStateUpdated', {
+            success: true,
+            gameState,
+            timestamp: Date.now(),
+          });
 
           // 게임 오버 시 모든 플레이어 정보 업데이트
           if (gameState.gameOver) {
@@ -395,6 +414,15 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
                 playerId: data.playerId,
               },
             );
+
+            // 게임 오버 이벤트 발송
+            this.server.to(roomId).emit('gameOver', {
+              playerId: data.playerId,
+              finalScore: gameState.score,
+              finalLevel: gameState.level,
+              finalLines: gameState.linesCleared,
+              timestamp: Date.now(),
+            });
 
             const roomPlayers = await this.gameService.getRoomPlayers(roomId);
             this.server.to(roomId).emit('roomPlayersUpdate', {
