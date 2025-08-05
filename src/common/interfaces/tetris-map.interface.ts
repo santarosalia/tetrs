@@ -1,15 +1,7 @@
-export type TetrominoType = 'I' | 'O' | 'T' | 'S' | 'Z' | 'J' | 'L';
+import { TetrominoType, Tetromino, GameStatus } from './shared.interface';
 
-export interface Position {
-  x: number;
-  y: number;
-}
-
-export interface TetrisBlock {
-  type: TetrominoType;
-  position: Position;
-  rotation: number;
-  shape: number[][];
+// 서버 전용 테트리스 블록 (추가 상태 포함)
+export interface TetrisBlock extends Tetromino {
   // 추가 정보
   falling?: boolean; // 현재 떨어지고 있는지
   ghostY?: number; // 고스트 블럭 Y 위치
@@ -17,6 +9,7 @@ export interface TetrisBlock {
   dropTime?: number; // 다음 드롭까지 남은 시간
 }
 
+// 서버 전용 테트리스 맵
 export interface TetrisMap {
   playerId: string;
   playerName: string;
@@ -48,10 +41,11 @@ export interface TetrisMap {
 export interface GameMapState {
   gameId: string;
   players: TetrisMap[];
-  gameStatus: 'WAITING' | 'PLAYING' | 'FINISHED';
+  gameStatus: GameStatus;
   lastUpdated: string;
 }
 
+// 게임 설정 (공통 타입 사용)
 export interface GameConfig {
   boardWidth: number;
   boardHeight: number;

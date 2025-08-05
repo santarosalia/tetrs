@@ -14,10 +14,8 @@ import {
 import { LoggerService } from '../common/services/logger.service';
 import { TetrisMapService } from './tetris-map.service';
 import { TetrisLogicService } from './tetris-logic.service';
-import {
-  TetrisBlock,
-  TetrominoType,
-} from '../common/interfaces/tetris-map.interface';
+import { TetrisBlock } from '../common/interfaces/tetris-map.interface';
+import { TetrominoType } from '../common/interfaces/shared.interface';
 
 export interface PlayerGameState {
   playerId: string;
