@@ -256,7 +256,7 @@ export class TetrisLogicService {
 
   getGhostPiece(tetromino: TetrisBlock, board: number[][]): TetrisBlock {
     // 현재 피스의 떨어질 위치를 계산
-    const ghostPosition = { ...tetromino.position };
+    let ghostPosition = { ...tetromino.position };
 
     // 아래로 이동할 수 있는 최대 거리를 찾음
     while (
