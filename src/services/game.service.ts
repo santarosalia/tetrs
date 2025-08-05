@@ -394,6 +394,15 @@ export class GameService {
           // 게임 오버 체크
           if (this.tetrisLogic.isGameOver(updates.board)) {
             updates.gameOver = true;
+            this.logger.log(`게임 오버: ${playerId}`, {
+              playerId,
+              finalScore: updates.score,
+              finalLevel: updates.level,
+              finalLines: updates.linesCleared,
+            });
+
+            // 게임 오버 처리
+            await this.handleGameOver(playerId);
           }
         }
       } else if (input.action === 'rotate') {
@@ -440,6 +449,15 @@ export class GameService {
         // 게임 오버 체크
         if (this.tetrisLogic.isGameOver(updates.board)) {
           updates.gameOver = true;
+          this.logger.log(`게임 오버 (하드 드롭): ${playerId}`, {
+            playerId,
+            finalScore: updates.score,
+            finalLevel: updates.level,
+            finalLines: updates.linesCleared,
+          });
+
+          // 게임 오버 처리
+          await this.handleGameOver(playerId);
         }
       } else if (input.action === 'hold') {
         if (gameState.canHold) {
@@ -1359,6 +1377,52 @@ export class GameService {
         playerId,
       });
       throw error;
+    }
+  }
+
+  /**
+   * 서버 권위의 게임 오버 처리
+   */
+  async handleGameOver(playerId: string): Promise<void> {
+    try {
+      const gameState = await this.getPlayerGameState(playerId);
+      if (!gameState) return;
+
+      // 게임 오버 상태로 업데이트
+      await this.updatePlayerGameState(playerId, {
+        gameOver: true,
+        lastActivity: new Date(),
+      });
+
+      // 게임 오버 이벤트 발행
+      await this.publishGameEvent(gameState.roomId, 'GAME_OVER', {
+        playerId,
+        finalScore: gameState.score,
+        finalLevel: gameState.level,
+        finalLines: gameState.linesCleared,
+        timestamp: new Date().toISOString(),
+      });
+
+      // 플레이어 게임 오버 이벤트 발행
+      await this.publishGameEvent(gameState.roomId, 'PLAYER_GAME_OVER', {
+        playerId,
+        finalScore: gameState.score,
+        finalLevel: gameState.level,
+        finalLines: gameState.linesCleared,
+        timestamp: new Date().toISOString(),
+      });
+
+      this.logger.log(`게임 오버 처리 완료: ${playerId}`, {
+        playerId,
+        finalScore: gameState.score,
+        finalLevel: gameState.level,
+        finalLines: gameState.linesCleared,
+      });
+    } catch (error) {
+      this.logger.log(`게임 오버 처리 실패: ${error.message}`, {
+        error,
+        playerId,
+      });
     }
   }
 }
