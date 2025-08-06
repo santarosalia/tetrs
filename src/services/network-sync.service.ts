@@ -278,4 +278,126 @@ export class NetworkSyncService {
   getAllClientStates(): Map<string, any> {
     return this.clientStates;
   }
+
+  // 실시간 게임 상태 동기화 최적화
+  async optimizeGameStateSync(playerId: string, gameState: any): Promise<any> {
+    const clientState = this.clientStates.get(playerId);
+    if (!clientState) {
+      return gameState;
+    }
+
+    // 마지막 스냅샷과 비교하여 변경된 부분만 전송
+    const lastSnapshot = clientState.lastSnapshot;
+    const now = Date.now();
+
+    // 100ms마다 전체 스냅샷, 그 외에는 델타 업데이트만
+    if (now - lastSnapshot > 100) {
+      clientState.lastSnapshot = now;
+      return {
+        type: 'full_snapshot',
+        gameState,
+        timestamp: now,
+      };
+    } else {
+      // 델타 업데이트 (변경된 부분만)
+      return {
+        type: 'delta_update',
+        changes: this.calculateDeltaChanges(
+          clientState.lastGameState,
+          gameState,
+        ),
+        timestamp: now,
+      };
+    }
+  }
+
+  // 델타 변경사항 계산
+  private calculateDeltaChanges(lastState: any, currentState: any): any {
+    if (!lastState) {
+      return currentState;
+    }
+
+    const changes: any = {};
+
+    // 보드 변경사항만 계산 (가장 무거운 데이터)
+    if (currentState.board && lastState.board) {
+      const boardChanges = this.calculateBoardDelta(
+        lastState.board,
+        currentState.board,
+      );
+      if (boardChanges.length > 0) {
+        changes.board = boardChanges;
+      }
+    }
+
+    // 다른 필드들의 변경사항
+    const fields = ['score', 'level', 'linesCleared', 'gameOver', 'paused'];
+    fields.forEach((field) => {
+      if (currentState[field] !== lastState[field]) {
+        changes[field] = currentState[field];
+      }
+    });
+
+    // 조각 변경사항
+    if (currentState.currentPiece && lastState.currentPiece) {
+      if (
+        JSON.stringify(currentState.currentPiece) !==
+        JSON.stringify(lastState.currentPiece)
+      ) {
+        changes.currentPiece = currentState.currentPiece;
+      }
+    }
+
+    return changes;
+  }
+
+  // 보드 델타 계산 (최적화)
+  private calculateBoardDelta(
+    lastBoard: number[][],
+    currentBoard: number[][],
+  ): any[] {
+    const changes: any[] = [];
+
+    for (let y = 0; y < currentBoard.length; y++) {
+      for (let x = 0; x < currentBoard[y].length; x++) {
+        if (lastBoard[y] && lastBoard[y][x] !== currentBoard[y][x]) {
+          changes.push({
+            x,
+            y,
+            value: currentBoard[y][x],
+          });
+        }
+      }
+    }
+
+    return changes;
+  }
+
+  // 네트워크 지연 보정
+  calculateNetworkCompensation(playerId: string): number {
+    const clientState = this.clientStates.get(playerId);
+    if (!clientState) {
+      return 0;
+    }
+
+    // 평균 지연시간 기반 보정값 계산
+    return Math.min(clientState.latency * 0.5, 100); // 최대 100ms 보정
+  }
+
+  // 클라이언트 상태 예측
+  predictClientState(playerId: string, currentState: any): any {
+    const clientState = this.clientStates.get(playerId);
+    if (!clientState) {
+      return currentState;
+    }
+
+    const compensation = this.calculateNetworkCompensation(playerId);
+
+    // 네트워크 지연을 고려한 상태 예측
+    return {
+      ...currentState,
+      predictedLatency: compensation,
+      serverTime: Date.now(),
+    };
+  }
 }

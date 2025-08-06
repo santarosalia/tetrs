@@ -141,10 +141,230 @@ export class LoggerService {
   }
 
   logError(error: Error, context?: LogContext) {
-    this.error(`Error occurred: ${error.message}`, error.stack, {
+    this.error(`Error occurred: ${error.message}`, error.stack, context);
+  }
+
+  // 치팅 방지 및 입력 검증 로그 메서드들
+  logInvalidInput(
+    playerId: string,
+    action: string,
+    reason: string,
+    context?: LogContext,
+  ) {
+    this.warn(
+      `Invalid input detected: ${playerId} attempted ${action} - ${reason}`,
+      {
+        ...context,
+        playerId,
+        action,
+        reason,
+      },
+    );
+  }
+
+  logCheatAttempt(playerId: string, cheatType: string, context?: LogContext) {
+    this.error(
+      `Cheat attempt detected: ${playerId} - ${cheatType}`,
+      undefined,
+      {
+        ...context,
+        playerId,
+        cheatType,
+      },
+    );
+  }
+
+  logPlayerInput(
+    playerId: string,
+    action: string,
+    result: string,
+    context?: LogContext,
+  ) {
+    this.log(`Player input processed: ${playerId} - ${action} -> ${result}`, {
       ...context,
-      action: 'ERROR',
-      errorName: error.name,
+      playerId,
+      action,
+      result,
+    });
+  }
+
+  logStateSync(playerId: string, syncType: string, context?: LogContext) {
+    this.log(`State synchronization: ${playerId} - ${syncType}`, {
+      ...context,
+      playerId,
+      syncType,
+      action: 'STATE_SYNC',
+    });
+  }
+
+  logGameLogic(
+    playerId: string,
+    operation: string,
+    details: any,
+    context?: LogContext,
+  ) {
+    this.log(`Game logic operation: ${playerId} - ${operation}`, {
+      ...context,
+      playerId,
+      operation,
+      details,
+      action: 'GAME_LOGIC',
+    });
+  }
+
+  /**
+   * 테트리스 로직 디버깅 로그
+   */
+  logTetrisLogic(
+    playerId: string,
+    action: string,
+    data: {
+      currentPiece?: any;
+      board?: number[][];
+      score?: number;
+      level?: number;
+      linesCleared?: number;
+      gameOver?: boolean;
+      nextPiece?: any;
+      heldPiece?: any;
+      ghostPiece?: any;
+      tetrominoBag?: string[];
+      bagIndex?: number;
+    },
+  ) {
+    this.logger.log(`[TETRIS_LOGIC] ${playerId} - ${action}`, {
+      playerId,
+      action,
+      currentPiece: data.currentPiece
+        ? {
+            type: data.currentPiece.type,
+            position: data.currentPiece.position,
+            rotation: data.currentPiece.rotation,
+            shape: data.currentPiece.shape,
+          }
+        : null,
+      boardHeight: data.board?.length || 0,
+      boardWidth: data.board?.[0]?.length || 0,
+      score: data.score,
+      level: data.level,
+      linesCleared: data.linesCleared,
+      gameOver: data.gameOver,
+      nextPiece: data.nextPiece,
+      heldPiece: data.heldPiece,
+      ghostPiece: data.ghostPiece
+        ? {
+            type: data.ghostPiece.type,
+            position: data.ghostPiece.position,
+            rotation: data.ghostPiece.rotation,
+          }
+        : null,
+      tetrominoBag: data.tetrominoBag,
+      bagIndex: data.bagIndex,
+      timestamp: new Date().toISOString(),
+    });
+  }
+
+  /**
+   * 조각 이동 디버깅 로그
+   */
+  logPieceMovement(
+    playerId: string,
+    action: string,
+    data: {
+      fromPosition?: { x: number; y: number };
+      toPosition?: { x: number; y: number };
+      pieceType?: string;
+      success?: boolean;
+      reason?: string;
+    },
+  ) {
+    this.logger.log(`[PIECE_MOVEMENT] ${playerId} - ${action}`, {
+      playerId,
+      action,
+      fromPosition: data.fromPosition,
+      toPosition: data.toPosition,
+      pieceType: data.pieceType,
+      success: data.success,
+      reason: data.reason,
+      timestamp: new Date().toISOString(),
+    });
+  }
+
+  /**
+   * 라인 클리어 디버깅 로그
+   */
+  logLineClear(
+    playerId: string,
+    data: {
+      linesCleared: number;
+      oldScore: number;
+      newScore: number;
+      oldLevel: number;
+      newLevel: number;
+      clearedLines?: number[];
+    },
+  ) {
+    this.logger.log(`[LINE_CLEAR] ${playerId}`, {
+      playerId,
+      linesCleared: data.linesCleared,
+      oldScore: data.oldScore,
+      newScore: data.newScore,
+      scoreIncrease: data.newScore - data.oldScore,
+      oldLevel: data.oldLevel,
+      newLevel: data.newLevel,
+      clearedLines: data.clearedLines,
+      timestamp: new Date().toISOString(),
+    });
+  }
+
+  /**
+   * 게임 오버 디버깅 로그
+   */
+  logGameOver(
+    playerId: string,
+    data: {
+      finalScore: number;
+      finalLevel: number;
+      finalLines: number;
+      reason: string;
+      boardState?: number[][];
+    },
+  ) {
+    this.logger.log(`[GAME_OVER] ${playerId}`, {
+      playerId,
+      finalScore: data.finalScore,
+      finalLevel: data.finalLevel,
+      finalLines: data.finalLines,
+      reason: data.reason,
+      boardHeight: data.boardState?.length || 0,
+      boardWidth: data.boardState?.[0]?.length || 0,
+      timestamp: new Date().toISOString(),
+    });
+  }
+
+  /**
+   * 7-bag 시스템 디버깅 로그
+   */
+  logTetrominoBag(
+    playerId: string,
+    action: string,
+    data: {
+      bag: string[];
+      bagIndex: number;
+      nextPiece?: string;
+      newBag?: string[];
+      bagLength?: number;
+      willRegenerate?: boolean;
+    },
+  ) {
+    this.logger.log(`[TETROMINO_BAG] ${playerId} - ${action}`, {
+      playerId,
+      action,
+      bag: data.bag,
+      bagIndex: data.bagIndex,
+      nextPiece: data.nextPiece,
+      newBag: data.newBag,
+      timestamp: new Date().toISOString(),
     });
   }
 

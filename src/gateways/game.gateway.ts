@@ -41,7 +41,68 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
     private readonly networkSyncService: NetworkSyncService,
     private readonly logger: LoggerService,
     private readonly tetrisMapService: TetrisMapService,
-  ) {}
+  ) {
+    // Redis 구독 설정
+    this.setupRedisSubscriptions();
+  }
+
+  private setupRedisSubscriptions() {
+    // 게임 상태 업데이트 구독
+    this.redisService.subscribe('game_state_update:*', (message) => {
+      try {
+        const data = JSON.parse(message);
+        const playerId = data.playerId;
+
+        if (data.type === 'gameOver') {
+          // 게임오버 이벤트를 해당 플레이어에게 전송
+          this.server.to(playerId).emit('gameOver', {
+            playerId: data.playerId,
+            finalScore: data.finalScore,
+            finalLevel: data.finalLevel,
+            finalLines: data.finalLines,
+            reason: data.reason,
+            timestamp: data.timestamp,
+          });
+
+          this.logger.log(`게임오버 이벤트 전송: ${playerId}`, {
+            playerId,
+            finalScore: data.finalScore,
+            finalLevel: data.finalLevel,
+            finalLines: data.finalLines,
+          });
+        } else if (data.type === 'game_state_update') {
+          // 일반 게임 상태 업데이트
+          this.server.to(playerId).emit('gameStateUpdate', data);
+        }
+      } catch (error) {
+        this.logger.logError(error);
+      }
+    });
+
+    // 게임 시작 이벤트 구독
+    this.redisService.subscribe('game_started:*', (message) => {
+      try {
+        const data = JSON.parse(message);
+        const playerId = data.playerId;
+
+        // 게임 시작 이벤트를 해당 플레이어에게 전송
+        this.server.to(playerId).emit('gameStarted', {
+          playerId: data.playerId,
+          roomId: data.roomId,
+          gameSeed: data.gameSeed,
+          timestamp: data.timestamp,
+        });
+
+        this.logger.log(`게임 시작 이벤트 전송: ${playerId}`, {
+          playerId,
+          roomId: data.roomId,
+          gameSeed: data.gameSeed,
+        });
+      } catch (error) {
+        this.logger.logError(error);
+      }
+    });
+  }
 
   handleConnection(client: Socket) {
     this.logger.logWebSocketConnection(client.id, {
@@ -81,12 +142,17 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
       // 게임 룸에 참여
       client.join(roomId);
 
-      // 서버 응답: 공유 시드, 게임 설정 등
+      // 플레이어 게임 상태 가져오기
+      const playerGameState =
+        await this.gameService.getPlayerGameState(playerId);
+
+      // 서버 응답: 게임 시드, 게임 설정 등
       const response = {
         type: 'join_game_response',
         playerId,
         roomId,
-        sharedSeed: Math.floor(Math.random() * 1000000),
+        gameSeed:
+          playerGameState?.gameSeed || Math.floor(Math.random() * 1000000),
         garbageSyncSeed: Math.floor(Math.random() * 1000000),
         gameSettings: {
           tickRate: 60,
@@ -313,138 +379,122 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
     data: {
       playerId: string;
       action: string;
-      currentPiece?: any;
-      board?: number[][];
-      score?: number;
-      level?: number;
-      linesCleared?: number;
+      // 클라이언트에서 전송하는 게임 상태 데이터 제거
+      // 서버에서만 게임 로직 처리
     },
   ) {
     try {
-      this.logger.log(`플레이어 입력 처리 시작: ${data.playerId}`, {
-        playerId: data.playerId,
-        action: data.action,
-        score: data.score,
-        level: data.level,
-        linesCleared: data.linesCleared,
-      });
+      const { playerId, action } = data;
 
-      const gameState = await this.gameService.handlePlayerInput(
-        data.playerId,
-        {
-          action: data.action,
-          currentPiece: data.currentPiece,
-          board: data.board,
-          score: data.score,
-          level: data.level,
-          linesCleared: data.linesCleared,
-        },
+      // 1. 입력 검증 (서버 권한)
+      const validActions = [
+        'moveLeft',
+        'moveRight',
+        'moveDown',
+        'rotate',
+        'hardDrop',
+        'hold',
+      ];
+      if (!validActions.includes(action)) {
+        this.logger.logInvalidInput(playerId, action, 'Invalid action type');
+        return;
+      }
+
+      // 2. 플레이어 상태 확인
+      const playerState = await this.gameService.getPlayerGameState(playerId);
+      if (!playerState || playerState.gameOver) {
+        this.logger.logInvalidInput(
+          playerId,
+          action,
+          'Player not in game or game over',
+        );
+        return;
+      }
+
+      // 3. 서버에서 게임 로직 처리 (클라이언트 상태 무시)
+      const updatedState = await this.gameService.handlePlayerInputServerOnly(
+        playerId,
+        action,
       );
 
-      if (gameState) {
-        this.logger.log(`게임 상태 업데이트 완료: ${data.playerId}`, {
-          playerId: data.playerId,
-          score: gameState.score,
-          level: gameState.level,
-          linesCleared: gameState.linesCleared,
-          gameOver: gameState.gameOver,
-        });
-
-        // 클라이언트에게 업데이트된 게임 상태 전송
-        client.emit('gameStateUpdated', {
-          success: true,
-          gameState: {
-            board: gameState.board,
-            currentPiece: gameState.currentPiece,
-            nextPiece: gameState.nextPiece,
-            heldPiece: gameState.heldPiece,
-            score: gameState.score,
-            level: gameState.level,
-            linesCleared: gameState.linesCleared,
-            gameOver: gameState.gameOver,
-            paused: gameState.paused,
-            canHold: gameState.canHold,
-          },
-          timestamp: Date.now(),
-        });
-
-        // 룸의 다른 플레이어들에게 게임 상태 변경 알림 (옵션)
-        const roomId = gameState.roomId;
-        if (roomId) {
-          // 플레이어 게임 상태 변경 이벤트 발송
-          const gameStateUpdate = {
-            playerId: data.playerId,
-            score: gameState.score,
-            level: gameState.level,
-            linesCleared: gameState.linesCleared,
-            gameOver: gameState.gameOver,
-            timestamp: Date.now(),
-          };
-
-          this.logger.log(
-            `플레이어 게임 상태 변경 이벤트 발송: ${data.playerId}`,
-            {
-              playerId: data.playerId,
-              score: gameState.score,
-              level: gameState.level,
-              linesCleared: gameState.linesCleared,
-              gameOver: gameState.gameOver,
-              roomId,
-            },
-          );
-
-          // 룸의 다른 플레이어들에게 게임 상태 변경 알림
-          client.broadcast
-            .to(roomId)
-            .emit('playerGameStateChanged', gameStateUpdate);
-
-          // 클라이언트에게도 업데이트된 게임 상태 전송
-          client.emit('gameStateUpdated', {
-            success: true,
-            gameState,
+      if (updatedState) {
+        // 4. 업데이트된 상태를 모든 클라이언트에게 브로드캐스트
+        client.broadcast
+          .to(updatedState.roomId)
+          .emit('playerGameStateChanged', {
+            playerId,
+            score: updatedState.score,
+            level: updatedState.level,
+            linesCleared: updatedState.linesCleared,
+            gameOver: updatedState.gameOver,
             timestamp: Date.now(),
           });
 
-          // 게임 오버 시 모든 플레이어 정보 업데이트
-          if (gameState.gameOver) {
-            this.logger.log(
-              `게임 오버로 인한 룸 플레이어 정보 업데이트: ${roomId}`,
-              {
-                roomId,
-                playerId: data.playerId,
-              },
-            );
+        // 5. 개별 플레이어에게 상세 상태 전송
+        client.emit('gameStateUpdate', {
+          gameState: {
+            board: updatedState.board,
+            currentPiece: updatedState.currentPiece,
+            nextPiece: updatedState.nextPiece,
+            heldPiece: updatedState.heldPiece,
+            ghostPiece: updatedState.ghostPiece,
+            score: updatedState.score,
+            level: updatedState.level,
+            linesCleared: updatedState.linesCleared,
+            gameOver: updatedState.gameOver,
+            paused: updatedState.paused,
+            gameSeed: updatedState.gameSeed,
+            canHold: updatedState.canHold,
+          },
+        });
 
-            // 게임 오버 이벤트 발송
-            this.server.to(roomId).emit('gameOver', {
-              playerId: data.playerId,
-              finalScore: gameState.score,
-              finalLevel: gameState.level,
-              finalLines: gameState.linesCleared,
-              timestamp: Date.now(),
-            });
-
-            const roomPlayers = await this.gameService.getRoomPlayers(roomId);
-            this.server.to(roomId).emit('roomPlayersUpdate', {
-              success: true,
-              players: roomPlayers,
-              roomId,
-              timestamp: Date.now(),
-            });
-          }
+        // 6. 게임 오버 처리
+        if (updatedState.gameOver) {
+          await this.gameService.handleGameOver(playerId);
+          client.broadcast.to(updatedState.roomId).emit('playerGameOver', {
+            playerId,
+            finalScore: updatedState.score,
+            finalLevel: updatedState.level,
+            finalLines: updatedState.linesCleared,
+          });
         }
       }
 
-      return { success: true, gameState };
+      this.logger.logPlayerInput(
+        playerId,
+        action,
+        'Input processed successfully',
+      );
     } catch (error) {
-      throw new WsException({
-        success: false,
-        error: {
-          code: error.code || 'HANDLE_PLAYER_INPUT_ERROR',
-          message: error.message,
-        },
-      });
+      this.logger.logError(error);
+      client.emit('error', { message: '입력 처리 중 오류가 발생했습니다.' });
     }
+  }
+
+  // 보드 상태 검증 메서드 추가
+  private validateBoardState(
+    serverBoard: number[][],
+    clientBoard: number[][],
+  ): number {
+    if (!serverBoard || !clientBoard) return 1.0;
+
+    let differences = 0;
+    let totalCells = 0;
+
+    for (let y = 0; y < Math.min(serverBoard.length, clientBoard.length); y++) {
+      for (
+        let x = 0;
+        x < Math.min(serverBoard[y].length, clientBoard[y].length);
+        x++
+      ) {
+        totalCells++;
+        if (serverBoard[y][x] !== clientBoard[y][x]) {
+          differences++;
+        }
+      }
+    }
+
+    return totalCells > 0 ? differences / totalCells : 1.0;
   }
 
   @SubscribeMessage('updatePlayerGameState')
@@ -1084,6 +1134,229 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
         success: false,
         error: {
           code: error.code || 'SUBSCRIBE_MAP_ERROR',
+          message: error.message,
+        },
+      });
+    }
+  }
+
+  @SubscribeMessage('fixGameStateSync')
+  async handleFixGameStateSync(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() data: { playerId: string },
+  ) {
+    try {
+      const { playerId } = data;
+
+      this.logger.log(`게임 상태 동기화 수정 요청: ${playerId}`, {
+        playerId,
+        clientId: client.id,
+      });
+
+      // 서버 권위적으로 게임 상태 수정
+      const fixedState = await this.gameService.fixGameStateSync(playerId);
+
+      if (fixedState) {
+        // 수정된 상태를 클라이언트에게 전송
+        client.emit('gameStateSyncFixed', {
+          success: true,
+          gameState: {
+            board: fixedState.board || [],
+            currentPiece: fixedState.currentPiece || null,
+            nextPiece: fixedState.nextPiece || null,
+            heldPiece: fixedState.heldPiece || null,
+            canHold: fixedState.canHold || false,
+            score: fixedState.score || 0,
+            level: fixedState.level || 1,
+            linesCleared: fixedState.linesCleared || 0,
+            gameOver: fixedState.gameOver || false,
+            paused: fixedState.paused || false,
+            ghostPiece: fixedState.ghostPiece || null,
+            tetrominoBag: fixedState.tetrominoBag,
+            bagIndex: fixedState.bagIndex,
+            gameSeed: fixedState.gameSeed,
+          },
+          timestamp: Date.now(),
+        });
+
+        // 룸의 다른 플레이어들에게 상태 변경 알림
+        if (fixedState.roomId) {
+          client.broadcast
+            .to(fixedState.roomId)
+            .emit('playerGameStateChanged', {
+              playerId,
+              score: fixedState.score,
+              level: fixedState.level,
+              linesCleared: fixedState.linesCleared,
+              gameOver: fixedState.gameOver,
+              timestamp: Date.now(),
+            });
+        }
+
+        this.logger.log(`게임 상태 동기화 수정 완료: ${playerId}`, {
+          playerId,
+          currentPiece: fixedState.currentPiece?.type,
+          ghostPiece: fixedState.ghostPiece?.type,
+          nextPiece: fixedState.nextPiece,
+          gameOver: fixedState.gameOver,
+        });
+      } else {
+        client.emit('gameStateSyncFixed', {
+          success: false,
+          error: '게임 상태를 찾을 수 없거나 게임이 종료되었습니다.',
+        });
+      }
+
+      return { success: true, fixedState };
+    } catch (error) {
+      this.logger.log(`게임 상태 동기화 수정 실패: ${error.message}`, {
+        error,
+        playerId: data.playerId,
+      });
+
+      client.emit('gameStateSyncFixed', {
+        success: false,
+        error: error.message,
+      });
+
+      throw new WsException({
+        success: false,
+        error: {
+          code: error.code || 'FIX_GAME_STATE_SYNC_ERROR',
+          message: error.message,
+        },
+      });
+    }
+  }
+
+  @SubscribeMessage('forceGameOverState')
+  async handleForceGameOverState(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() data: { playerId: string },
+  ) {
+    try {
+      const { playerId } = data;
+
+      this.logger.log(`게임 오버 상태 강제 수정 요청: ${playerId}`, {
+        playerId,
+        clientId: client.id,
+      });
+
+      // 서버에서 게임 오버 상태 강제 수정
+      const updatedState = await this.gameService.forceGameOverState(playerId);
+
+      if (updatedState) {
+        // 수정된 상태를 클라이언트에게 전송
+        client.emit('gameOverStateForced', {
+          success: true,
+          gameState: {
+            board: updatedState.board || [],
+            currentPiece: updatedState.currentPiece || null,
+            nextPiece: updatedState.nextPiece || null,
+            heldPiece: updatedState.heldPiece || null,
+            canHold: updatedState.canHold || false,
+            score: updatedState.score || 0,
+            level: updatedState.level || 1,
+            linesCleared: updatedState.linesCleared || 0,
+            gameOver: updatedState.gameOver || true,
+            paused: updatedState.paused || false,
+            ghostPiece: updatedState.ghostPiece || null,
+            tetrominoBag: updatedState.tetrominoBag,
+            bagIndex: updatedState.bagIndex,
+            gameSeed: updatedState.gameSeed,
+          },
+          timestamp: Date.now(),
+        });
+
+        // 룸의 다른 플레이어들에게 게임 오버 알림
+        if (updatedState.roomId) {
+          client.broadcast.to(updatedState.roomId).emit('playerGameOver', {
+            playerId,
+            finalScore: updatedState.score,
+            finalLevel: updatedState.level,
+            finalLines: updatedState.linesCleared,
+            timestamp: Date.now(),
+          });
+        }
+
+        this.logger.log(`게임 오버 상태 강제 수정 완료: ${playerId}`, {
+          playerId,
+          gameOver: updatedState.gameOver,
+        });
+      } else {
+        client.emit('gameOverStateForced', {
+          success: false,
+          error: '게임 상태를 찾을 수 없습니다.',
+        });
+      }
+
+      return { success: true, updatedState };
+    } catch (error) {
+      this.logger.log(`게임 오버 상태 강제 수정 실패: ${error.message}`, {
+        error,
+        playerId: data.playerId,
+      });
+
+      client.emit('gameOverStateForced', {
+        success: false,
+        error: error.message,
+      });
+
+      throw new WsException({
+        success: false,
+        error: {
+          code: error.code || 'FORCE_GAME_OVER_STATE_ERROR',
+          message: error.message,
+        },
+      });
+    }
+  }
+
+  @SubscribeMessage('startRoomGame')
+  async handleStartRoomGame(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() data: { roomId: string },
+  ) {
+    try {
+      await this.gameService.startRoomGame(data.roomId);
+
+      // 룸의 플레이어들의 게임 상태를 가져와서 시드 정보 추출
+      const players = await this.gameService.getRoomPlayers(data.roomId, true);
+      const gameSeed =
+        players.length > 0 && players[0].gameState?.gameSeed
+          ? players[0].gameState.gameSeed
+          : Date.now() + Math.floor(Math.random() * 1000);
+
+      // 룸의 모든 플레이어에게 게임 시작 알림 (시드 포함)
+      this.server.to(data.roomId).emit('roomGameStarted', {
+        roomId: data.roomId,
+        gameSeed,
+        timestamp: Date.now(),
+      });
+
+      // 클라이언트에게 성공 응답 전송
+      client.emit('startRoomGameResponse', {
+        success: true,
+        roomId: data.roomId,
+        gameSeed,
+        timestamp: Date.now(),
+      });
+
+      return { success: true, roomId: data.roomId };
+    } catch (error) {
+      // 클라이언트에게 실패 응답 전송
+      client.emit('startRoomGameResponse', {
+        success: false,
+        error: {
+          code: error.code || 'START_ROOM_GAME_ERROR',
+          message: error.message,
+        },
+      });
+
+      throw new WsException({
+        success: false,
+        error: {
+          code: error.code || 'START_ROOM_GAME_ERROR',
           message: error.message,
         },
       });
