@@ -1964,37 +1964,6 @@ export class GameService {
     await this.redisService.updateGameStats(gameId, linesSent, linesReceived);
   }
 
-  // 테트리스 맵 관련 메서드들
-  async getGameMapState(gameId: string) {
-    return await this.tetrisMapService.getGameMapState(gameId);
-  }
-
-  async getPlayerMap(gameId: string, playerId: string) {
-    return await this.tetrisMapService.getPlayerMap(gameId, playerId);
-  }
-
-  async updatePlayerMap(gameId: string, playerId: string, mapData: any) {
-    await this.tetrisMapService.updatePlayerMap(gameId, playerId, mapData);
-    // 맵 업데이트 후 전체 게임 상태 브로드캐스트
-    await this.tetrisMapService.publishGameMapState(gameId);
-  }
-
-  async initializePlayerMap(
-    gameId: string,
-    playerId: string,
-    playerName: string,
-  ) {
-    await this.tetrisMapService.initializePlayerMap(
-      gameId,
-      playerId,
-      playerName,
-    );
-  }
-
-  async deletePlayerMap(gameId: string, playerId: string) {
-    await this.tetrisMapService.deletePlayerMap(gameId, playerId);
-  }
-
   /**
    * 룸 통계 정보
    */
@@ -2476,42 +2445,6 @@ export class GameService {
       this.logger.log('GameService 정리 완료');
     } catch (error) {
       this.logger.logError(error);
-    }
-  }
-
-  // 룸 기반 게임 시작 (새로운 플로우용)
-  async startRoomGame(roomId: string): Promise<void> {
-    try {
-      const room = await this.getRoom(roomId);
-      if (!room) {
-        throw new Error('룸을 찾을 수 없습니다.');
-      }
-
-      // 룸의 모든 플레이어 가져오기
-      const players = await this.getRoomPlayers(roomId, true);
-      if (players.length < 1) {
-        throw new Error('게임을 시작할 플레이어가 없습니다.');
-      }
-
-      // 룸 상태를 PLAYING으로 업데이트
-      await this.updateRoomStatus(roomId, 'PLAYING');
-
-      // 각 플레이어의 게임 상태 초기화 및 시작
-      for (const player of players) {
-        this.logger.log(`플레이어 게임 시작: ${player.id}`, {
-          playerId: player.id,
-          playerName: player.name,
-        });
-        await this.startPlayerGame(player.id, roomId);
-      }
-
-      this.logger.log(`룸 게임 시작: ${roomId}`, {
-        roomId,
-        playerCount: players.length,
-      });
-    } catch (error) {
-      this.logger.log(`룸 게임 시작 실패: ${error.message}`, { error, roomId });
-      throw error;
     }
   }
 }
