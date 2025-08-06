@@ -113,16 +113,6 @@ export class GameService {
       linesReceived: 0,
     });
 
-    // PostgreSQL에 영속성 데이터 저장
-    await this.prisma.game.create({
-      data: {
-        id: redisGame.id,
-        maxPlayers: redisGame.maxPlayers,
-        status: GameStatus.WAITING,
-        currentPlayers: 0,
-      },
-    });
-
     this.logger.logGameCreated(redisGame.id, redisGame.maxPlayers);
 
     return redisGame;
@@ -1740,7 +1730,7 @@ export class GameService {
     // Redis에서 실시간 게임 상태 가져오기
     const game = await this.redisService.getGame(gameId);
     if (!game) {
-      throw new GameNotFoundException(gameId);
+      throw new Error(`게임 ${gameId}을 찾을 수 없습니다.`);
     }
 
     // Redis에서 플레이어 목록 가져오기
@@ -2037,13 +2027,6 @@ export class GameService {
 
       // 게임 타이머 정지
       this.stopGameTimer(playerId);
-
-      // 최종 점수 저장
-      await this.updatePlayerStats(playerId, {
-        score: playerState.score,
-        linesCleared: playerState.linesCleared,
-        level: playerState.level,
-      });
 
       // 룸의 다른 플레이어들에게 게임 오버 알림 (game_state_update로 통일)
       const roomId = playerState.roomId;
