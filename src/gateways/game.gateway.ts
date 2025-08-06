@@ -50,8 +50,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
     // 게임 상태 업데이트 구독
     this.redisService.subscribe('game_state_update:*', (message) => {
       try {
-        const data = JSON.parse(message);
-        console.log('update', data);
+        const data = message;
         const playerId = data.playerId;
 
         if (data.type === 'gameOver') {
@@ -73,6 +72,8 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
           });
         } else if (data.type === 'game_state_update') {
           // 일반 게임 상태 업데이트
+          console.log('update');
+
           this.server.to(playerId).emit('gameStateUpdate', data);
         }
       } catch (error) {
@@ -539,6 +540,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
       // 룸에 참여
       client.join(roomId);
+      client.join(player.id);
 
       // 기존 플레이어들의 게임 상태 조회
       const existingPlayers = await this.gameService.getRoomPlayers(roomId);

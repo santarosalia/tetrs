@@ -2687,10 +2687,6 @@ export class GameService {
         throw new Error('룸을 찾을 수 없습니다.');
       }
 
-      if (room.status !== 'WAITING') {
-        throw new Error('게임이 이미 시작되었거나 대기 상태가 아닙니다.');
-      }
-
       // 룸의 모든 플레이어 가져오기
       const players = await this.getRoomPlayers(roomId, true);
       if (players.length < 1) {

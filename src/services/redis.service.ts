@@ -276,12 +276,21 @@ export class RedisService implements OnModuleDestroy {
       db: parseInt(process.env.REDIS_DB || '0'),
     });
 
-    subscriber.subscribe(channel);
-    subscriber.on('message', (ch, message) => {
-      if (ch === channel) {
-        callback(JSON.parse(message));
-      }
-    });
+    if (channel.includes('*')) {
+      subscriber.psubscribe(channel);
+      subscriber.on('pmessage', (pattern, ch, message) => {
+        if (pattern === channel) {
+          callback(JSON.parse(message));
+        }
+      });
+    } else {
+      subscriber.subscribe(channel);
+      subscriber.on('message', (ch, message) => {
+        if (ch === channel) {
+          callback(JSON.parse(message));
+        }
+      });
+    }
   }
 
   // 유틸리티 메서드
