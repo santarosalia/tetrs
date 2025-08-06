@@ -590,12 +590,12 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
       // 룸 정보 조회 및 업데이트
       const room = await this.gameService.getRoom(roomId);
+      const currentPlayers = await this.gameService.getRoomPlayers(roomId);
 
+      let roomInfo = null;
       if (room) {
-        const currentPlayers = await this.gameService.getRoomPlayers(roomId);
-
         // 룸 정보 구성
-        const roomInfo = {
+        roomInfo = {
           roomId: room.id,
           playerCount: currentPlayers.length,
           maxPlayers: 99, // 기본값
@@ -604,16 +604,6 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
           highestScore: room.highestScore,
           createdAt: room.createdAt,
         };
-
-        // 모든 클라이언트에게 룸 정보 업데이트 전송
-        this.server.to(roomId).emit('roomInfoUpdate', {
-          roomInfo,
-        });
-
-        // 룸 플레이어 수 업데이트
-        this.server.to(roomId).emit('roomPlayerCountUpdate', {
-          playerCount: currentPlayers.length,
-        });
 
         // 룸 통계 업데이트 (평균 점수, 최고 점수)
         if (room.averageScore || room.highestScore) {
@@ -626,13 +616,15 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
         }
       }
 
-      // 기존 플레이어들에게 전체 방 상태 업데이트 알림
+      // 기존 플레이어들에게 전체 방 상태 업데이트 알림 (통합된 이벤트)
       this.server.to(roomId).emit('roomStateUpdate', {
         success: true,
         roomId,
-        players: await this.gameService.getRoomPlayers(roomId),
+        players: currentPlayers,
         gameState: roomGameState,
         newPlayer: player,
+        roomInfo,
+        playerCount: currentPlayers.length,
         timestamp: Date.now(),
       });
 
@@ -694,13 +686,12 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
       // 룸 정보 업데이트
       const room = await this.gameService.getRoom(data.roomId);
-      if (room) {
-        const currentPlayers = await this.gameService.getRoomPlayers(
-          data.roomId,
-        );
+      const currentPlayers = await this.gameService.getRoomPlayers(data.roomId);
 
+      let roomInfo = null;
+      if (room) {
         // 룸 정보 구성
-        const roomInfo = {
+        roomInfo = {
           roomId: room.id,
           playerCount: currentPlayers.length,
           maxPlayers: 99, // 기본값
@@ -709,16 +700,6 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
           highestScore: room.highestScore,
           createdAt: room.createdAt,
         };
-
-        // 모든 클라이언트에게 룸 정보 업데이트 전송
-        this.server.to(data.roomId).emit('roomInfoUpdate', {
-          roomInfo,
-        });
-
-        // 룸 플레이어 수 업데이트
-        this.server.to(data.roomId).emit('roomPlayerCountUpdate', {
-          playerCount: currentPlayers.length,
-        });
 
         // 룸 통계 업데이트 (평균 점수, 최고 점수)
         if (room.averageScore || room.highestScore) {
@@ -730,6 +711,16 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
           });
         }
       }
+
+      // 통합된 룸 상태 업데이트 전송
+      this.server.to(data.roomId).emit('roomStateUpdate', {
+        success: true,
+        roomId: data.roomId,
+        players: currentPlayers,
+        roomInfo,
+        playerCount: currentPlayers.length,
+        timestamp: Date.now(),
+      });
 
       return { success: true };
     } catch (error) {
@@ -779,12 +770,14 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
           createdAt: room.createdAt,
         };
 
-        client.emit('roomInfoUpdate', {
+        // 통합된 룸 상태 업데이트 전송
+        client.emit('roomStateUpdate', {
+          success: true,
+          roomId: room.id,
+          players: roomPlayers,
           roomInfo,
-        });
-
-        client.emit('roomPlayerCountUpdate', {
           playerCount: roomPlayers.length,
+          timestamp: Date.now(),
         });
 
         if (room.averageScore || room.highestScore) {
