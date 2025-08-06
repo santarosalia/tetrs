@@ -934,6 +934,11 @@ export class GameService {
       // 게임 상태 변경 이벤트 발행
       await this.publishGameStateUpdate(playerId, updatedState);
 
+      // 플레이어 상태 변경 이벤트 발행 (룸의 다른 플레이어들에게 알림)
+      if (updatedState.roomId) {
+        await this.publishPlayerStateChanged(updatedState.roomId);
+      }
+
       this.logger.logGameLogic(playerId, action, {
         newScore: updatedState.score,
         newLevel: updatedState.level,
@@ -1038,6 +1043,11 @@ export class GameService {
 
         await this.updatePlayerGameState(playerId, updatedState);
         await this.publishGameStateUpdate(playerId, updatedState);
+
+        // 플레이어 상태 변경 이벤트 발행 (룸의 다른 플레이어들에게 알림)
+        if (updatedState.roomId) {
+          await this.publishPlayerStateChanged(updatedState.roomId);
+        }
 
         return updatedState;
       }
@@ -1842,10 +1852,10 @@ export class GameService {
     await this.redisService.updatePlayer(playerId, { status: 'ELIMINATED' });
 
     // PostgreSQL 플레이어 상태 업데이트
-    await this.prisma.player.update({
-      where: { id: playerId },
-      data: { status: PlayerStatus.ELIMINATED },
-    });
+    // await this.prisma.player.update({
+    //   where: { id: playerId },
+    //   data: { status: PlayerStatus.ELIMINATED },
+    // });
 
     this.logger.logPlayerEliminated(player.gameId!, playerId, player.name);
 
@@ -1865,13 +1875,13 @@ export class GameService {
       await this.redisService.updateGame(player.gameId!, updateData);
 
       // PostgreSQL 게임 상태 업데이트
-      await this.prisma.game.update({
-        where: { id: player.gameId },
-        data: {
-          status: GameStatus.FINISHED,
-          winnerId: updateData.winnerId,
-        },
-      });
+      // await this.prisma.game.update({
+      //   where: { id: player.gameId },
+      //   data: {
+      //     status: GameStatus.FINISHED,
+      //     winnerId: updateData.winnerId,
+      //   },
+      // });
 
       this.logger.logGameFinished(player.gameId!, updateData.winnerId);
     }
@@ -2154,6 +2164,31 @@ export class GameService {
   }
 
   /**
+   * 플레이어 상태 변경 시 Redis에 publish
+   */
+  async publishPlayerStateChanged(roomId: string): Promise<void> {
+    try {
+      const players = await this.getRoomPlayers(roomId, true);
+
+      await this.redisService.publish('player_state_changed:' + roomId, {
+        roomId,
+        players,
+        timestamp: Date.now(),
+      });
+
+      this.logger.log(`플레이어 상태 변경 이벤트 발행: ${roomId}`, {
+        roomId,
+        playerCount: players.length,
+      });
+    } catch (error) {
+      this.logger.log(`플레이어 상태 변경 이벤트 발행 실패: ${error.message}`, {
+        error,
+        roomId,
+      });
+    }
+  }
+
+  /**
    * 개별 플레이어 정보 가져오기
    */
   async getPlayerInfo(playerId: string): Promise<any> {
@@ -2252,6 +2287,11 @@ export class GameService {
         ghostPiece: null,
         nextPiece: null,
       });
+
+      // 플레이어 상태 변경 이벤트 발행 (룸의 다른 플레이어들에게 알림)
+      if (roomId) {
+        await this.publishPlayerStateChanged(roomId);
+      }
 
       // 플레이어 상태 정리
       await this.cleanupPlayerGameState(playerId);
