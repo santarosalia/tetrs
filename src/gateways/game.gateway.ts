@@ -50,30 +50,6 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
       }
     });
 
-    // 게임 시작 이벤트 구독
-    this.redisService.subscribe('game_started:*', (message) => {
-      try {
-        const data = JSON.parse(message);
-        const playerId = data.playerId;
-
-        // 게임 시작 이벤트를 해당 플레이어에게 전송
-        this.server.to(playerId).emit('gameStarted', {
-          playerId: data.playerId,
-          roomId: data.roomId,
-          gameSeed: data.gameSeed,
-          timestamp: data.timestamp,
-        });
-
-        this.logger.log(`게임 시작 이벤트 전송: ${playerId}`, {
-          playerId,
-          roomId: data.roomId,
-          gameSeed: data.gameSeed,
-        });
-      } catch (error) {
-        this.logger.logError(error);
-      }
-    });
-
     // 플레이어 상태 변경 이벤트 구독
     this.redisService.subscribe('player_state_changed:*', (message) => {
       try {

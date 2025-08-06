@@ -316,17 +316,8 @@ export class GameService {
       // 게임 타이머 시작 (레벨 1로 시작)
       this.restartGameTimerWithLevel(playerId, initialGameState.level);
 
-      // 클라이언트에게 초기 게임 상태 전송
+      // 클라이언트에게 초기 게임 상태 전송 (게임 시작 정보 포함)
       await this.publishGameStateUpdate(playerId, initialGameState);
-
-      // 게임 시작 이벤트 전송
-      await this.redisService.publish(`game_started:${playerId}`, {
-        type: 'game_started',
-        playerId,
-        roomId,
-        gameSeed,
-        timestamp: Date.now(),
-      });
 
       this.logger.logGameStarted(roomId, 1);
 
@@ -1191,6 +1182,8 @@ export class GameService {
       currentPiece: gameState.currentPiece,
       ghostPiece: gameState.ghostPiece,
       nextPieces: this.generateNextPiecesForClient(gameState, 6),
+      // 게임 시작 상태 명시적 포함
+      gameStarted: gameState.gameStarted,
     };
 
     // currentPiece가 null인 경우 새로운 조각 생성
@@ -1247,11 +1240,14 @@ export class GameService {
       gameState: clientGameState,
     });
 
-    // Redis에 게임 상태 업데이트 발행
+    // Redis에 게임 상태 업데이트 발행 (게임 시작 정보 포함)
     await this.redisService.publish(`game_state_update:${playerId}`, {
       type: 'game_state_update',
       playerId,
-      gameState: clientGameState,
+      gameState: {
+        ...clientGameState,
+        gameStarted: clientGameState.gameStarted, // 게임 시작 상태 명시적 포함
+      },
       timestamp: Date.now(),
     });
   }
