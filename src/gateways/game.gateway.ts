@@ -49,29 +49,6 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
         this.logger.logError(error);
       }
     });
-
-    // 플레이어 상태 변경 이벤트 구독
-    this.redisService.subscribe('player_state_changed:*', (message) => {
-      try {
-        const data = message;
-        const roomId = data.roomId;
-
-        // 룸의 모든 클라이언트에게 플레이어 상태 변경 알림
-        this.server.to(roomId).emit('roomPlayersUpdate', {
-          success: true,
-          players: data.players,
-          roomId,
-          timestamp: Date.now(),
-        });
-
-        this.logger.log(`플레이어 상태 변경 이벤트 전송: ${roomId}`, {
-          roomId,
-          playerCount: data.players.length,
-        });
-      } catch (error) {
-        this.logger.logError(error);
-      }
-    });
   }
 
   handleConnection(client: Socket) {
@@ -85,29 +62,6 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
     this.logger.logWebSocketDisconnection(client.id, {
       ip: client.handshake.address,
     });
-  }
-
-  // 개인 게임 관련 메시지 핸들러들
-
-  @SubscribeMessage('getPlayerGameState')
-  async handleGetPlayerGameState(
-    @ConnectedSocket() client: Socket,
-    @MessageBody() data: { playerId: string },
-  ) {
-    try {
-      const gameState = await this.gameService.getPlayerGameState(
-        data.playerId,
-      );
-      return { success: true, gameState };
-    } catch (error) {
-      throw new WsException({
-        success: false,
-        error: {
-          code: error.code || 'GET_PLAYER_GAME_STATE_ERROR',
-          message: error.message,
-        },
-      });
-    }
   }
 
   @SubscribeMessage('handlePlayerInput')
@@ -237,38 +191,11 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
       // 기존 플레이어들의 게임 상태 조회
       const existingPlayers = await this.gameService.getRoomPlayers(roomId);
 
-      // 신규 플레이어에게 기존 플레이어들의 상태 전송
-      client.emit('existingPlayersState', {
-        success: true,
-        players: existingPlayers.filter((p) => p.id !== player.id), // 자신 제외
-        roomId,
-        timestamp: Date.now(),
-      });
-
       // 신규 플레이어에게 룸의 전체 게임 상태 전송
       const roomGameState = await this.gameService.getRoomGameState(roomId);
-      if (roomGameState) {
-        client.emit('roomGameState', {
-          success: true,
-          gameState: roomGameState,
-          roomId,
-          timestamp: Date.now(),
-        });
-      }
 
       // 플레이어 상태 변경 이벤트 발행
       await this.gameService.publishPlayerStateChanged(roomId);
-
-      // 기존 플레이어들에게 새 플레이어 참여 알림과 함께 최신 방 상태 전송
-      this.server.to(roomId).emit('playerJoined', {
-        player,
-        roomId,
-        roomState: {
-          players: await this.gameService.getRoomPlayers(roomId),
-          gameState: roomGameState,
-          timestamp: Date.now(),
-        },
-      });
 
       // 룸 정보 조회 및 업데이트
       const room = await this.gameService.getRoom(roomId);
