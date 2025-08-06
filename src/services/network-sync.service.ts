@@ -2,7 +2,6 @@ import { Injectable } from '@nestjs/common';
 import { LoggerService } from '../common/services/logger.service';
 import { RedisService } from './redis.service';
 import {
-  NetworkMessage,
   InputEventMessage,
   PingMessage,
   PongMessage,

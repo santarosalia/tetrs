@@ -613,7 +613,7 @@ export class GameService {
         bagIndex: playerState.bagIndex,
       });
 
-      let updatedState = { ...playerState };
+      const updatedState = { ...playerState };
 
       // 서버에서 게임 로직 처리
       switch (action) {
@@ -1644,11 +1644,6 @@ export class GameService {
    */
   private async autoStartGame(roomId: string): Promise<void> {
     try {
-      const room = await this.getRoom(roomId);
-      if (!room || room.status !== 'WAITING') {
-        return;
-      }
-
       // 룸 상태를 PLAYING으로 업데이트
       await this.updateRoomStatus(roomId, 'PLAYING');
 
@@ -2371,7 +2366,7 @@ export class GameService {
         gameOver: playerState.gameOver,
       });
 
-      let updatedState = { ...playerState };
+      const updatedState = { ...playerState };
       let needsUpdate = false;
 
       // 0. 게임 오버 상태에서 조각이 스폰 위치에 있는 경우 처리

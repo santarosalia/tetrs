@@ -51,6 +51,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
     this.redisService.subscribe('game_state_update:*', (message) => {
       try {
         const data = JSON.parse(message);
+        console.log('update', data);
         const playerId = data.playerId;
 
         if (data.type === 'gameOver') {
