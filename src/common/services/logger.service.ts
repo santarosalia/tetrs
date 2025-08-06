@@ -372,6 +372,7 @@ export class LoggerService {
     if (!context) return message;
 
     const contextStr = Object.entries(context)
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
       .filter(([_, value]) => value !== undefined)
       .map(([key, value]) => `${key}=${value}`)
       .join(' ');

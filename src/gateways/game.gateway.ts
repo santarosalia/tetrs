@@ -178,7 +178,6 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
         playerId,
         action,
       );
-      console.log(updatedState.gameOver);
 
       if (updatedState) {
         // 4. 업데이트된 상태를 모든 클라이언트에게 브로드캐스트
@@ -240,34 +239,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
     }
   }
 
-  // 보드 상태 검증 메서드 추가
-  private validateBoardState(
-    serverBoard: number[][],
-    clientBoard: number[][],
-  ): number {
-    if (!serverBoard || !clientBoard) return 1.0;
-
-    let differences = 0;
-    let totalCells = 0;
-
-    for (let y = 0; y < Math.min(serverBoard.length, clientBoard.length); y++) {
-      for (
-        let x = 0;
-        x < Math.min(serverBoard[y].length, clientBoard[y].length);
-        x++
-      ) {
-        totalCells++;
-        if (serverBoard[y][x] !== clientBoard[y][x]) {
-          differences++;
-        }
-      }
-    }
-
-    return totalCells > 0 ? differences / totalCells : 1.0;
-  }
-
   // 자동 룸 시스템 관련 메시지 핸들러들
-
   @SubscribeMessage('joinAutoRoom')
   async handleJoinAutoRoom(
     @ConnectedSocket() client: Socket,

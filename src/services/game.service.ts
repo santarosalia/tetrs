@@ -1337,66 +1337,10 @@ export class GameService {
   }
 
   /**
-   * 조각 회전 (시계방향 90도)
-   */
-  private rotateShape(shape: number[][]): number[][] {
-    const rotated = [];
-    for (let x = 0; x < 4; x++) {
-      rotated[x] = [];
-      for (let y = 0; y < 4; y++) {
-        rotated[x][y] = shape[3 - y][x];
-      }
-    }
-    return rotated;
-  }
-
-  /**
    * 레벨 계산
    */
   private calculateLevel(linesCleared: number): number {
     return Math.floor(linesCleared / 10) + 1;
-  }
-
-  /**
-   * 랜덤 테트리스 조각 생성
-   */
-  private getRandomPiece(): string {
-    const pieces = ['I', 'O', 'T', 'S', 'Z', 'J', 'L'];
-    return pieces[Math.floor(Math.random() * pieces.length)];
-  }
-
-  /**
-   * 빈 보드 생성
-   */
-  private createEmptyBoard(): number[][] {
-    const board = [];
-    for (let y = 0; y < 20; y++) {
-      board[y] = [];
-      for (let x = 0; x < 10; x++) {
-        board[y][x] = 0;
-      }
-    }
-    return board;
-  }
-
-  /**
-   * 조각 모양 가져오기 (새로운 테트리스 로직)
-   */
-  private getPieceShape(piece: string): number[][] {
-    const tetrominoType = piece as TetrominoType;
-    const pieceShapes = this.tetrisLogic.TETROMINO_SHAPES[tetrominoType];
-
-    if (!pieceShapes) {
-      // 기본 I 피스 반환
-      return [
-        [0, 0, 0, 0],
-        [1, 1, 1, 1],
-        [0, 0, 0, 0],
-        [0, 0, 0, 0],
-      ];
-    }
-
-    return pieceShapes[0];
   }
 
   /**
