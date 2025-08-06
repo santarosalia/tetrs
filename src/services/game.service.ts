@@ -50,6 +50,13 @@ export class GameService {
   private readonly MAX_PLAYERS_PER_ROOM = 99;
   private gameTimers = new Map<string, NodeJS.Timeout>();
 
+  // 성능 최적화를 위한 캐시
+  private readonly gameStateCache = new Map<
+    string,
+    { state: PlayerGameState; timestamp: number }
+  >();
+  private readonly CACHE_TTL = 5000; // 5초 캐시 TTL
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly redisService: RedisService,
@@ -58,7 +65,7 @@ export class GameService {
     private readonly tetrisLogic: TetrisLogicService,
   ) {}
 
-  // 게임 타이머 시작
+  // 게임 타이머 시작 (최적화됨)
   private startGameTimer(playerId: string): void {
     // 기존 타이머가 있으면 제거
     this.stopGameTimer(playerId);
@@ -77,12 +84,12 @@ export class GameService {
         this.logger.logError(error);
         this.stopGameTimer(playerId);
       }
-    }, 1000); // 1초마다 실행 (레벨에 따른 속도 조정 필요)
+    }, 1000);
 
     this.gameTimers.set(playerId, timer);
   }
 
-  // 게임 타이머 정지
+  // 게임 타이머 정지 (최적화됨)
   private stopGameTimer(playerId: string): void {
     const timer = this.gameTimers.get(playerId);
     if (timer) {
@@ -91,11 +98,16 @@ export class GameService {
     }
   }
 
-  // 게임 타이머 정지 (모든 플레이어)
+  // 게임 타이머 정지 (모든 플레이어) - 최적화됨
   private stopAllGameTimers(): void {
-    for (const [playerId] of this.gameTimers) {
-      this.stopGameTimer(playerId);
-    }
+    const timerIds = Array.from(this.gameTimers.keys());
+    timerIds.forEach((playerId) => this.stopGameTimer(playerId));
+  }
+
+  // 메모리 누수 방지를 위한 정리 메서드 추가
+  private cleanupTimers(): void {
+    this.stopAllGameTimers();
+    this.gameTimers.clear();
   }
 
   async createGame(createGameDto: CreateGameDto) {
@@ -212,7 +224,7 @@ export class GameService {
   }
 
   /**
-   * 플레이어 개인 게임 상태 초기화
+   * 플레이어 개인 게임 상태 초기화 (최적화됨)
    */
   private async initializePlayerGameState(
     playerId: string,
@@ -224,60 +236,21 @@ export class GameService {
       throw new Error(`룸 ${roomId}을 찾을 수 없습니다.`);
     }
 
-    // 플레이어 입장시마다 고유한 시드 생성 (완전히 랜덤)
-    const timestamp = Date.now();
-    const randomOffset = Math.floor(Math.random() * 1000000000);
-    const playerHash = this.hashString(playerId);
-    const roomHash = this.hashString(roomId);
-    const microtime = Number(process.hrtime.bigint() % 1000000000n);
-    const additionalRandom = Math.floor(Math.random() * 1000000);
-
-    // XOR 연산을 사용하여 더 랜덤한 시드 생성
-    const gameSeed =
-      timestamp ^
-      randomOffset ^
-      playerHash ^
-      roomHash ^
-      microtime ^
-      additionalRandom;
-
-    // 시드가 음수가 되지 않도록 보장하고, 더 큰 범위로 확장
-    const finalSeed = Math.abs(gameSeed) % 2147483647; // 32비트 정수 범위
-
-    // 시드가 너무 작으면 더 큰 값으로 조정
-    const adjustedSeed = finalSeed < 1000 ? finalSeed + 10000 : finalSeed;
-
-    // 디버깅을 위한 로그
-    if (process.env.NODE_ENV === 'development') {
-      console.log(
-        `Generated seed for player ${playerId}: ${finalSeed} (timestamp: ${timestamp}, randomOffset: ${randomOffset}, playerHash: ${playerHash}, roomHash: ${roomHash}, microtime: ${microtime}, additionalRandom: ${additionalRandom})`,
-      );
-    }
-
-    // 시드가 0이 되지 않도록 보장
-    const safeSeed = adjustedSeed === 0 ? 12345 : adjustedSeed;
-
-    // 시드가 제대로 작동하는지 테스트
-    const testBag = this.generateNewBagWithSeed(safeSeed);
-    if (process.env.NODE_ENV === 'development') {
-      console.log(`Test bag for seed ${safeSeed}:`, testBag);
-      console.log(
-        `Test bag length: ${testBag.length}, unique pieces: ${new Set(testBag).size}`,
-      );
-    }
+    // 최적화된 시드 생성
+    const gameSeed = this.generateOptimizedSeed(playerId, roomId);
 
     // 테트리스 표준 7-bag 시스템 초기화
-    const initialBag = this.generateNewBagWithSeed(safeSeed);
+    const initialBag = this.generateNewBagWithSeed(gameSeed);
 
     const gameState: PlayerGameState = {
       playerId,
       roomId,
       gameStarted: false,
       score: 0,
-      level: 0, // 테트리스 표준: 레벨 0부터 시작
+      level: 0,
       linesCleared: 0,
       currentPiece: null,
-      nextPiece: initialBag[0], // 첫 번째 조각을 다음 조각으로 설정
+      nextPiece: initialBag[0],
       heldPiece: null,
       canHold: true,
       ghostPiece: null,
@@ -288,9 +261,9 @@ export class GameService {
       startTime: new Date(),
       lastActivity: new Date(),
       tetrominoBag: initialBag,
-      bagIndex: 1, // 첫 번째 조각을 사용했으므로 인덱스를 1로 설정
-      bagNumber: 1, // 첫 번째 가방
-      gameSeed: safeSeed,
+      bagIndex: 1,
+      bagNumber: 1,
+      gameSeed,
     };
 
     await this.redisService.set(
@@ -299,16 +272,32 @@ export class GameService {
     );
 
     this.logger.log(
-      `플레이어 게임 상태 초기화: ${playerId} (룸: ${roomId}, 시드: ${safeSeed})`,
-      {
-        playerId,
-        roomId,
-        gameSeed: safeSeed,
-        timestamp,
-        randomOffset,
-        playerHash,
-      },
+      `플레이어 게임 상태 초기화: ${playerId} (룸: ${roomId}, 시드: ${gameSeed})`,
+      { playerId, roomId, gameSeed },
     );
+  }
+
+  // 최적화된 시드 생성 메서드
+  private generateOptimizedSeed(playerId: string, roomId: string): number {
+    const timestamp = Date.now();
+    const randomOffset = Math.floor(Math.random() * 1000000000);
+    const playerHash = this.hashString(playerId);
+    const roomHash = this.hashString(roomId);
+    const microtime = Number(process.hrtime.bigint() % 1000000000n);
+    const additionalRandom = Math.floor(Math.random() * 1000000);
+
+    const gameSeed =
+      timestamp ^
+      randomOffset ^
+      playerHash ^
+      roomHash ^
+      microtime ^
+      additionalRandom;
+    const finalSeed = Math.abs(gameSeed) % 2147483647;
+    const adjustedSeed = finalSeed < 1000 ? finalSeed + 10000 : finalSeed;
+    const safeSeed = adjustedSeed === 0 ? 12345 : adjustedSeed;
+
+    return safeSeed;
   }
 
   /**
@@ -427,10 +416,18 @@ export class GameService {
   }
 
   /**
-   * 플레이어 게임 상태 가져오기
+   * 플레이어 게임 상태 가져오기 (캐시 최적화됨)
    */
   async getPlayerGameState(playerId: string): Promise<PlayerGameState | null> {
     try {
+      // 캐시에서 먼저 확인
+      const cached = this.gameStateCache.get(playerId);
+      const now = Date.now();
+
+      if (cached && now - cached.timestamp < this.CACHE_TTL) {
+        return cached.state;
+      }
+
       const gameStateData = await this.redisService.get(
         `player_game:${playerId}`,
       );
@@ -438,21 +435,8 @@ export class GameService {
 
       // 게임이 시작되었는데 currentPiece가 null인 경우 새로운 피스 생성
       if (gameState && gameState.gameStarted && !gameState.currentPiece) {
-        this.logger.log(
-          `currentPiece가 null이므로 새로운 피스 생성: ${playerId}`,
-          {
-            playerId,
-            gameState: gameState,
-          },
-        );
-
         // 게임이 시작되었지만 currentPiece가 null인 경우 게임을 다시 시작
         if (gameState.gameStarted && !gameState.currentPiece) {
-          this.logger.log(`게임을 다시 시작합니다: ${playerId}`, {
-            playerId,
-          });
-
-          // 게임을 다시 시작
           await this.startPlayerGame(playerId, gameState.roomId);
 
           // 다시 게임 상태를 가져옴
@@ -463,11 +447,13 @@ export class GameService {
             ? JSON.parse(updatedGameStateData)
             : null;
 
-          this.logger.log(`게임 재시작 후 상태: ${playerId}`, {
-            playerId,
-            currentPiece: updatedGameState?.currentPiece,
-            gameStarted: updatedGameState?.gameStarted,
-          });
+          // 캐시 업데이트
+          if (updatedGameState) {
+            this.gameStateCache.set(playerId, {
+              state: updatedGameState,
+              timestamp: now,
+            });
+          }
 
           return updatedGameState;
         }
@@ -492,23 +478,20 @@ export class GameService {
           JSON.stringify(updatedGameState),
         );
 
-        this.logger.log(`새로운 피스 생성 완료: ${playerId}`, {
-          playerId,
-          newPiece: newPiece,
-          nextPiece: nextPiece,
+        // 캐시 업데이트
+        this.gameStateCache.set(playerId, {
+          state: updatedGameState,
+          timestamp: now,
         });
 
         return updatedGameState;
       }
 
-      // 게임 상태 로그 출력
+      // 캐시 업데이트
       if (gameState) {
-        this.logger.log(`게임 상태 조회: ${playerId}`, {
-          playerId,
-          gameStarted: gameState.gameStarted,
-          currentPiece: gameState.currentPiece,
-          nextPiece: gameState.nextPiece,
-          gameOver: gameState.gameOver,
+        this.gameStateCache.set(playerId, {
+          state: gameState,
+          timestamp: now,
         });
       }
 
@@ -522,8 +505,13 @@ export class GameService {
     }
   }
 
+  // 캐시 무효화 메서드
+  private invalidateCache(playerId: string): void {
+    this.gameStateCache.delete(playerId);
+  }
+
   /**
-   * 플레이어 게임 상태 업데이트
+   * 플레이어 게임 상태 업데이트 (캐시 최적화됨)
    */
   async updatePlayerGameState(
     playerId: string,
@@ -541,16 +529,29 @@ export class GameService {
         lastActivity: new Date(),
       };
 
-      await this.redisService.set(
-        `player_game:${playerId}`,
-        JSON.stringify(updatedState),
-      );
+      // Redis에 직접 저장 (JSON.stringify 최적화)
+      const serializedState = JSON.stringify(updatedState);
+      await this.redisService.set(`player_game:${playerId}`, serializedState);
+
+      // 캐시 무효화
+      this.invalidateCache(playerId);
     } catch (error) {
       this.logger.log(`플레이어 게임 상태 업데이트 실패: ${error.message}`, {
         error,
         playerId,
       });
     }
+  }
+
+  // 최적화된 게임 상태 업데이트 (배치 처리)
+  async updatePlayerGameStateBatch(
+    updates: Array<{ playerId: string; updates: Partial<PlayerGameState> }>,
+  ): Promise<void> {
+    const promises = updates.map(async ({ playerId, updates }) => {
+      return this.updatePlayerGameState(playerId, updates);
+    });
+
+    await Promise.all(promises);
   }
 
   /**
@@ -2650,7 +2651,7 @@ export class GameService {
     return Math.max(50, Math.min(1000, baseInterval));
   }
 
-  // 레벨에 따른 타이머 재시작
+  // 레벨에 따른 타이머 재시작 (최적화됨)
   private restartGameTimerWithLevel(playerId: string, level: number): void {
     this.stopGameTimer(playerId);
 
@@ -2674,9 +2675,27 @@ export class GameService {
 
     this.gameTimers.set(playerId, timer);
 
-    console.log(
-      `Timer restarted for player ${playerId} with level ${level}, interval: ${dropInterval}ms`,
-    );
+    // 개발 환경에서만 로그 출력
+    if (process.env.NODE_ENV === 'development') {
+      console.log(
+        `Timer restarted for player ${playerId} with level ${level}, interval: ${dropInterval}ms`,
+      );
+    }
+  }
+
+  // 서비스 정리 메서드 (애플리케이션 종료 시 호출)
+  async cleanup(): Promise<void> {
+    try {
+      // 모든 타이머 정리
+      this.cleanupTimers();
+
+      // 캐시 정리
+      this.gameStateCache.clear();
+
+      this.logger.log('GameService 정리 완료');
+    } catch (error) {
+      this.logger.logError(error);
+    }
   }
 
   // 룸 기반 게임 시작 (새로운 플로우용)

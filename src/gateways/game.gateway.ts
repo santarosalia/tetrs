@@ -54,6 +54,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
         const playerId = data.playerId;
 
         if (data.type === 'gameOver') {
+          console.log('gameOver');
           // 게임오버 이벤트를 해당 플레이어에게 전송
           this.server.to(playerId).emit('gameOver', {
             playerId: data.playerId,
@@ -63,17 +64,8 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
             reason: data.reason,
             timestamp: data.timestamp,
           });
-
-          this.logger.log(`게임오버 이벤트 전송: ${playerId}`, {
-            playerId,
-            finalScore: data.finalScore,
-            finalLevel: data.finalLevel,
-            finalLines: data.finalLines,
-          });
         } else if (data.type === 'game_state_update') {
           // 일반 게임 상태 업데이트
-          console.log('update');
-
           this.server.to(playerId).emit('gameStateUpdate', data);
         }
       } catch (error) {
@@ -418,6 +410,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
         playerId,
         action,
       );
+      console.log(updatedState.gameOver);
 
       if (updatedState) {
         // 4. 업데이트된 상태를 모든 클라이언트에게 브로드캐스트
