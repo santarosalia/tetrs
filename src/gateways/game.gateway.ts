@@ -53,21 +53,8 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
         const data = message;
         const playerId = data.playerId;
 
-        if (data.type === 'gameOver') {
-          console.log('gameOver');
-          // 게임오버 이벤트를 해당 플레이어에게 전송
-          this.server.to(playerId).emit('gameOver', {
-            playerId: data.playerId,
-            finalScore: data.finalScore,
-            finalLevel: data.finalLevel,
-            finalLines: data.finalLines,
-            reason: data.reason,
-            timestamp: data.timestamp,
-          });
-        } else if (data.type === 'game_state_update') {
-          // 일반 게임 상태 업데이트
-          this.server.to(playerId).emit('gameStateUpdate', data);
-        }
+        // 모든 게임 상태 업데이트를 game_state_update로 통일
+        this.server.to(playerId).emit('gameStateUpdate', data);
       } catch (error) {
         this.logger.logError(error);
       }
@@ -463,11 +450,17 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
         // 6. 게임 오버 처리
         if (updatedState.gameOver) {
           await this.gameService.handleGameOver(playerId);
-          client.broadcast.to(updatedState.roomId).emit('playerGameOver', {
+          // 게임 오버 상태를 gameStateUpdate로 통일하여 전송
+          client.broadcast.to(updatedState.roomId).emit('gameStateUpdate', {
             playerId,
-            finalScore: updatedState.score,
-            finalLevel: updatedState.level,
-            finalLines: updatedState.linesCleared,
+            gameState: {
+              gameOver: true,
+              score: updatedState.score,
+              level: updatedState.level,
+              linesCleared: updatedState.linesCleared,
+            },
+            type: 'game_state_update',
+            timestamp: Date.now(),
           });
         }
       }
@@ -1220,15 +1213,6 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
         });
 
         // 룸의 다른 플레이어들에게 게임 오버 알림
-        if (updatedState.roomId) {
-          client.broadcast.to(updatedState.roomId).emit('playerGameOver', {
-            playerId,
-            finalScore: updatedState.score,
-            finalLevel: updatedState.level,
-            finalLines: updatedState.linesCleared,
-            timestamp: Date.now(),
-          });
-        }
 
         this.logger.log(`게임 오버 상태 강제 수정 완료: ${playerId}`, {
           playerId,

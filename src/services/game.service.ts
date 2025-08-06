@@ -1906,10 +1906,10 @@ export class GameService {
     await this.redisService.updatePlayerStats(playerId, stats);
 
     // PostgreSQL 플레이어 통계 업데이트 (영속성)
-    await this.prisma.player.update({
-      where: { id: playerId },
-      data: stats,
-    });
+    // await this.prisma.player.update({
+    //   where: { id: playerId },
+    //   data: stats,
+    // });
 
     this.logger.logStatsUpdated(playerId, player.gameId!, stats);
 
@@ -2255,27 +2255,32 @@ export class GameService {
         level: playerState.level,
       });
 
-      // 룸의 다른 플레이어들에게 게임 오버 알림
+      // 룸의 다른 플레이어들에게 게임 오버 알림 (game_state_update로 통일)
       const roomId = playerState.roomId;
       if (roomId) {
-        await this.publishGameEvent(roomId, 'playerGameOver', {
+        await this.publishGameEvent(roomId, 'gameStateUpdate', {
           playerId,
-          finalScore: playerState.score,
-          finalLevel: playerState.level,
-          finalLines: playerState.linesCleared,
-          reason: '새로운 피스를 스폰할 수 없습니다',
+          gameState: {
+            gameOver: true,
+            score: playerState.score,
+            level: playerState.level,
+            linesCleared: playerState.linesCleared,
+          },
+          type: 'game_state_update',
           timestamp: Date.now(),
         });
       }
 
-      // 게임오버 이벤트를 클라이언트에게 별도로 전송
+      // 게임오버 상태를 game_state_update로 통일하여 전송
       await this.redisService.publish(`game_state_update:${playerId}`, {
-        type: 'gameOver',
+        type: 'game_state_update',
         playerId,
-        finalScore: playerState.score,
-        finalLevel: playerState.level,
-        finalLines: playerState.linesCleared,
-        reason: '새로운 피스를 스폰할 수 없습니다',
+        gameState: {
+          gameOver: true,
+          score: playerState.score,
+          level: playerState.level,
+          linesCleared: playerState.linesCleared,
+        },
         timestamp: Date.now(),
       });
 
