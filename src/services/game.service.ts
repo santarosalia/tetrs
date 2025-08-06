@@ -143,8 +143,8 @@ export class GameService {
       // 5. 룸 상태 업데이트
       await this.updateRoomActivity(availableRoom.id);
 
-      // 6. 자동 게임 시작 제거 - 사용자가 명시적으로 시작해야 함
-
+      // 6. 자동 게임 시작
+      await this.startPlayerGame(player.id, availableRoom.id);
       this.logger.log(
         `플레이어 ${player.name}이(가) 자동으로 룸 ${availableRoom.id}에 배정됨`,
         {
