@@ -2615,49 +2615,6 @@ export class GameService {
   }
 
   /**
-   * 게임 오버 상태 강제 수정
-   */
-  async forceGameOverState(playerId: string): Promise<PlayerGameState | null> {
-    try {
-      const playerState = await this.getPlayerGameState(playerId);
-      if (!playerState) {
-        return null;
-      }
-
-      this.logger.log(`게임 오버 상태 강제 수정: ${playerId}`, {
-        playerId,
-        currentGameOver: playerState.gameOver,
-        hasCurrentPiece: !!playerState.currentPiece,
-      });
-
-      const updatedState = {
-        ...playerState,
-        gameOver: true,
-        currentPiece: null,
-        ghostPiece: null,
-        nextPiece: null,
-        lastActivity: new Date(),
-      };
-
-      await this.updatePlayerGameState(playerId, updatedState);
-      await this.publishGameStateUpdate(playerId, updatedState);
-
-      this.logger.log(`게임 오버 상태 강제 수정 완료: ${playerId}`, {
-        playerId,
-        gameOver: updatedState.gameOver,
-      });
-
-      return updatedState;
-    } catch (error) {
-      this.logger.log(`게임 오버 상태 강제 수정 실패: ${error.message}`, {
-        error,
-        playerId,
-      });
-      return null;
-    }
-  }
-
-  /**
    * 유효한 위치 찾기
    */
   private findValidPosition(piece: any, board: number[][]): any | null {
