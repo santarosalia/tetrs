@@ -49,6 +49,17 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
         this.logger.logError(error);
       }
     });
+    this.redisService.subscribe('room_state_update:*', (message) => {
+      try {
+        const data = message;
+        const roomId = data.roomId;
+
+        // 모든 게임 상태 업데이트를 game_state_update로 통일
+        this.server.to(roomId).emit('roomStateUpdate', data);
+      } catch (error) {
+        this.logger.logError(error);
+      }
+    });
   }
 
   handleConnection(client: Socket) {
@@ -71,8 +82,6 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
     data: {
       playerId: string;
       action: string;
-      // 클라이언트에서 전송하는 게임 상태 데이터 제거
-      // 서버에서만 게임 로직 처리
     },
   ) {
     try {
@@ -94,6 +103,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
       // 2. 플레이어 상태 확인
       const playerState = await this.gameService.getPlayerGameState(playerId);
+      const roomId = playerState?.roomId;
       if (!playerState || playerState.gameOver) {
         this.logger.logInvalidInput(
           playerId,
@@ -103,7 +113,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
         return;
       }
 
-      // 3. 서버에서 게임 로직 처리 (클라이언트 상태 무시)
+      // 3. 서버에서 게임 로직 처리
       const updatedState = await this.gameService.handlePlayerInputServerOnly(
         playerId,
         action,
@@ -114,12 +124,12 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
         if (updatedState.gameOver) {
           await this.gameService.handleGameOver(playerId);
           // 게임 오버 상태를 gameStateUpdate로 통일하여 전송
-          client.broadcast.to(updatedState.roomId).emit('gameStateUpdate', {
-            playerId,
-            gameOver: true,
-            score: updatedState.score,
-            level: updatedState.level,
-            linesCleared: updatedState.linesCleared,
+          const currentPlayers = await this.gameService.getRoomPlayers(roomId);
+
+          client.broadcast.to(updatedState.roomId).emit('roomStateUpdate', {
+            success: true,
+            roomId,
+            players: currentPlayers,
             timestamp: Date.now(),
           });
         }
@@ -277,93 +287,6 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
         success: false,
         error: {
           code: error.code || 'LEAVE_AUTO_ROOM_ERROR',
-          message: error.message,
-        },
-      });
-    }
-  }
-
-  @SubscribeMessage('getRoomStats')
-  async handleGetRoomStats() {
-    try {
-      const stats = await this.gameService.getRoomStats();
-      return { success: true, stats };
-    } catch (error) {
-      throw new WsException({
-        success: false,
-        error: {
-          code: error.code || 'GET_ROOM_STATS_ERROR',
-          message: error.message,
-        },
-      });
-    }
-  }
-
-  @SubscribeMessage('getRoomInfo')
-  async handleGetRoomInfo(
-    @ConnectedSocket() client: Socket,
-    @MessageBody() data: { roomId: string },
-  ) {
-    try {
-      const room = await this.gameService.getRoom(data.roomId);
-      const roomPlayers = await this.gameService.getRoomPlayers(data.roomId);
-
-      if (room) {
-        const roomInfo = {
-          roomId: room.id,
-          playerCount: roomPlayers.length,
-          maxPlayers: 99, // 기본값
-          roomStatus: room.status || 'waiting',
-          averageScore: room.averageScore,
-          highestScore: room.highestScore,
-          createdAt: room.createdAt,
-        };
-
-        // 통합된 룸 상태 업데이트 전송
-        client.emit('roomStateUpdate', {
-          success: true,
-          roomId: room.id,
-          players: roomPlayers,
-          roomInfo,
-          playerCount: roomPlayers.length,
-          timestamp: Date.now(),
-        });
-
-        if (room.averageScore || room.highestScore) {
-          client.emit('roomStatsUpdate', {
-            roomStats: {
-              averageScore: room.averageScore,
-              highestScore: room.highestScore,
-            },
-          });
-        }
-      }
-
-      return { success: true };
-    } catch (error) {
-      throw new WsException({
-        success: false,
-        error: {
-          code: error.code || 'GET_ROOM_INFO_ERROR',
-          message: error.message,
-        },
-      });
-    }
-  }
-
-  @SubscribeMessage('getPlayerInfo')
-  async handleGetPlayerInfo(
-    @ConnectedSocket() client: Socket,
-    @MessageBody() data: { playerId: string },
-  ) {
-    try {
-      const playerInfo = await this.gameService.getPlayerInfo(data.playerId);
-      return { success: true, playerInfo };
-    } catch (error) {
-      throw new WsException({
-        success: false,
-        error: {
-          code: error.code || 'GET_PLAYER_INFO_ERROR',
           message: error.message,
         },
       });

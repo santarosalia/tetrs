@@ -1,9 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import {
-  TetrominoType,
-  Tetromino,
-  Position,
-} from '../interfaces/shared.interface';
+import { TetrominoType, Tetromino } from '../interfaces/shared.interface';
 import {
   TETROMINO_SHAPES,
   TETROMINO_SPAWN_POSITIONS,

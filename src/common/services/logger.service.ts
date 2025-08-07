@@ -215,79 +215,15 @@ export class LoggerService {
   /**
    * 테트리스 로직 디버깅 로그
    */
-  logTetrisLogic(
-    playerId: string,
-    action: string,
-    data: {
-      currentPiece?: any;
-      board?: number[][];
-      score?: number;
-      level?: number;
-      linesCleared?: number;
-      gameOver?: boolean;
-      nextPiece?: any;
-      heldPiece?: any;
-      ghostPiece?: any;
-      tetrominoBag?: string[];
-      bagIndex?: number;
-    },
-  ) {
-    this.logger.log(`[TETRIS_LOGIC] ${playerId} - ${action}`, {
-      playerId,
-      action,
-      currentPiece: data.currentPiece
-        ? {
-            type: data.currentPiece.type,
-            position: data.currentPiece.position,
-            rotation: data.currentPiece.rotation,
-            shape: data.currentPiece.shape,
-          }
-        : null,
-      boardHeight: data.board?.length || 0,
-      boardWidth: data.board?.[0]?.length || 0,
-      score: data.score,
-      level: data.level,
-      linesCleared: data.linesCleared,
-      gameOver: data.gameOver,
-      nextPiece: data.nextPiece,
-      heldPiece: data.heldPiece,
-      ghostPiece: data.ghostPiece
-        ? {
-            type: data.ghostPiece.type,
-            position: data.ghostPiece.position,
-            rotation: data.ghostPiece.rotation,
-          }
-        : null,
-      tetrominoBag: data.tetrominoBag,
-      bagIndex: data.bagIndex,
-      timestamp: new Date().toISOString(),
-    });
+  logTetrisLogic(playerId: string, action: string) {
+    this.logger.log(`[TETRIS_LOGIC] ${playerId} - ${action}`);
   }
 
   /**
    * 조각 이동 디버깅 로그
    */
-  logPieceMovement(
-    playerId: string,
-    action: string,
-    data: {
-      fromPosition?: { x: number; y: number };
-      toPosition?: { x: number; y: number };
-      pieceType?: string;
-      success?: boolean;
-      reason?: string;
-    },
-  ) {
-    this.logger.log(`[PIECE_MOVEMENT] ${playerId} - ${action}`, {
-      playerId,
-      action,
-      fromPosition: data.fromPosition,
-      toPosition: data.toPosition,
-      pieceType: data.pieceType,
-      success: data.success,
-      reason: data.reason,
-      timestamp: new Date().toISOString(),
-    });
+  logPieceMovement(playerId: string, action: string) {
+    this.logger.log(`[PIECE_MOVEMENT] ${playerId} - ${action}`);
   }
 
   /**

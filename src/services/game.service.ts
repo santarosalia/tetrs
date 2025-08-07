@@ -528,28 +528,12 @@ export class GameService {
         return null;
       }
 
-      // 테트리스 로직 시작 로그
-      this.logger.logTetrisLogic(playerId, action, {
-        currentPiece: playerState.currentPiece,
-        board: playerState.board,
-        score: playerState.score,
-        level: playerState.level,
-        linesCleared: playerState.linesCleared,
-        gameOver: playerState.gameOver,
-        nextPiece: playerState.nextPiece,
-        heldPiece: playerState.heldPiece,
-        ghostPiece: playerState.ghostPiece,
-        tetrominoBag: playerState.tetrominoBag,
-        bagIndex: playerState.bagIndex,
-      });
-
       const updatedState = { ...playerState };
 
       // 서버에서 게임 로직 처리
       switch (action) {
         case 'moveLeft':
           if (updatedState.currentPiece) {
-            const fromPosition = { ...updatedState.currentPiece.position };
             const movedPiece = this.tetrisLogic.moveTetrisBlock(
               updatedState.currentPiece,
               updatedState.board,
@@ -563,26 +547,15 @@ export class GameService {
                 movedPiece,
                 updatedState.board,
               );
-              this.logger.logPieceMovement(playerId, 'moveLeft', {
-                fromPosition,
-                toPosition: movedPiece.position,
-                pieceType: movedPiece.type,
-                success: true,
-              });
+              this.logger.logPieceMovement(playerId, 'moveLeft');
             } else {
-              this.logger.logPieceMovement(playerId, 'moveLeft', {
-                fromPosition,
-                pieceType: updatedState.currentPiece.type,
-                success: false,
-                reason: 'Collision detected',
-              });
+              this.logger.logPieceMovement(playerId, 'moveLeft');
             }
           }
           break;
 
         case 'moveRight':
           if (updatedState.currentPiece) {
-            const fromPosition = { ...updatedState.currentPiece.position };
             const movedPiece = this.tetrisLogic.moveTetrisBlock(
               updatedState.currentPiece,
               updatedState.board,
@@ -596,26 +569,15 @@ export class GameService {
                 movedPiece,
                 updatedState.board,
               );
-              this.logger.logPieceMovement(playerId, 'moveRight', {
-                fromPosition,
-                toPosition: movedPiece.position,
-                pieceType: movedPiece.type,
-                success: true,
-              });
+              this.logger.logPieceMovement(playerId, 'moveRight');
             } else {
-              this.logger.logPieceMovement(playerId, 'moveRight', {
-                fromPosition,
-                pieceType: updatedState.currentPiece.type,
-                success: false,
-                reason: 'Collision detected',
-              });
+              this.logger.logPieceMovement(playerId, 'moveRight');
             }
           }
           break;
 
         case 'moveDown':
           if (updatedState.currentPiece) {
-            const fromPosition = { ...updatedState.currentPiece.position };
             const movedPiece = this.tetrisLogic.moveTetrisBlock(
               updatedState.currentPiece,
               updatedState.board,
@@ -629,12 +591,7 @@ export class GameService {
                 movedPiece,
                 updatedState.board,
               );
-              this.logger.logPieceMovement(playerId, 'moveDown', {
-                fromPosition,
-                toPosition: movedPiece.position,
-                pieceType: movedPiece.type,
-                success: true,
-              });
+              this.logger.logPieceMovement(playerId, 'moveDown');
             } else {
               // 조각을 보드에 고정
               updatedState.board = this.tetrisLogic.placeTetrisBlock(
@@ -699,28 +656,7 @@ export class GameService {
                 updatedState.board,
               );
 
-              // 게임오버인 경우 처리
-              if (updatedState.gameOver) {
-                this.logger.log(`게임오버 (moveDown): ${playerId}`, {
-                  playerId,
-                  finalScore: updatedState.score,
-                  finalLevel: updatedState.level,
-                  finalLines: updatedState.linesCleared,
-                });
-
-                // 게임 타이머 정지
-                this.stopGameTimer(playerId);
-
-                // 게임오버 처리
-                await this.handleGameOver(playerId);
-              }
-
-              this.logger.logPieceMovement(playerId, 'moveDown', {
-                fromPosition,
-                pieceType: updatedState.currentPiece?.type || 'unknown',
-                success: false,
-                reason: 'Piece placed on board',
-              });
+              this.logger.logPieceMovement(playerId, 'moveDown');
             }
           }
           break;
@@ -738,16 +674,9 @@ export class GameService {
                 rotatedPiece,
                 updatedState.board,
               );
-              this.logger.logPieceMovement(playerId, 'rotate', {
-                pieceType: rotatedPiece.type,
-                success: true,
-              });
+              this.logger.logPieceMovement(playerId, 'rotate');
             } else {
-              this.logger.logPieceMovement(playerId, 'rotate', {
-                pieceType: updatedState.currentPiece.type,
-                success: false,
-                reason: 'Rotation failed - wall kick not possible',
-              });
+              this.logger.logPieceMovement(playerId, 'rotate');
             }
           }
           break;
@@ -812,27 +741,7 @@ export class GameService {
               updatedState.board,
             );
 
-            // 게임오버인 경우 처리
-            if (updatedState.gameOver) {
-              this.logger.log(`게임오버 (hardDrop): ${playerId}`, {
-                playerId,
-                finalScore: updatedState.score,
-                finalLevel: updatedState.level,
-                finalLines: updatedState.linesCleared,
-              });
-
-              // 게임 타이머 정지
-              this.stopGameTimer(playerId);
-
-              // 게임오버 처리
-              await this.handleGameOver(playerId);
-            }
-
-            this.logger.logPieceMovement(playerId, 'hardDrop', {
-              pieceType: updatedState.currentPiece?.type || 'unknown',
-              success: true,
-              reason: `Dropped ${dropResult.dropDistance} lines`,
-            });
+            this.logger.logPieceMovement(playerId, 'hardDrop');
           }
           break;
 
@@ -953,22 +862,6 @@ export class GameService {
         updatedState.gameOver = this.tetrisLogic.isGameOverForServer(
           updatedState.board,
         );
-
-        // 게임오버인 경우 처리
-        if (updatedState.gameOver) {
-          this.logger.log(`게임오버 (자동 드롭): ${playerId}`, {
-            playerId,
-            finalScore: updatedState.score,
-            finalLevel: updatedState.level,
-            finalLines: updatedState.linesCleared,
-          });
-
-          // 게임 타이머 정지
-          this.stopGameTimer(playerId);
-
-          // 게임오버 처리
-          await this.handleGameOver(playerId);
-        }
 
         await this.updatePlayerGameState(playerId, updatedState);
         await this.publishGameStateUpdate(playerId, updatedState);
@@ -1875,7 +1768,7 @@ export class GameService {
     try {
       const players = await this.getRoomPlayers(roomId, true);
 
-      await this.redisService.publish('player_state_changed:' + roomId, {
+      await this.redisService.publish('room_state_update:' + roomId, {
         roomId,
         players,
         timestamp: Date.now(),

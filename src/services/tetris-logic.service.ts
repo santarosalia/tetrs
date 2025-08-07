@@ -1,10 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { TetrisCoreService } from '../common/services/tetris-core.service';
 import { TetrisBlock } from '../common/interfaces/tetris-map.interface';
-import {
-  Tetromino,
-  TetrominoType,
-} from '../common/interfaces/shared.interface';
+import { TetrominoType } from '../common/interfaces/shared.interface';
 import { TetrisLogicException } from '../common/exceptions/base.exception';
 
 @Injectable()

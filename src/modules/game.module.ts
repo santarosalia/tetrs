@@ -9,7 +9,6 @@ import { PrismaService } from '../services/prisma.service';
 import { RedisService } from '../services/redis.service';
 import { TetrisCoreService } from '../common/services/tetris-core.service';
 import { LoggerService } from '../common/services/logger.service';
-import { NetworkClientService } from '../common/services/network-client.service';
 
 @Module({
   controllers: [GameController],
@@ -23,7 +22,6 @@ import { NetworkClientService } from '../common/services/network-client.service'
     RedisService,
     TetrisCoreService,
     LoggerService,
-    NetworkClientService,
   ],
   exports: [
     GameGateway,
@@ -35,7 +33,6 @@ import { NetworkClientService } from '../common/services/network-client.service'
     RedisService,
     TetrisCoreService,
     LoggerService,
-    NetworkClientService,
   ],
 })
 export class GameModule {}

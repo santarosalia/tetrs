@@ -172,13 +172,13 @@ export const TETROMINO_SPAWN_POSITIONS: Record<
   TetrominoType,
   { x: number; y: number }
 > = {
-  I: { x: 3, y: 1 },
-  O: { x: 4, y: 1 },
-  T: { x: 3, y: 1 },
-  S: { x: 3, y: 1 },
-  Z: { x: 3, y: 1 },
-  J: { x: 3, y: 1 },
-  L: { x: 3, y: 1 },
+  I: { x: 3, y: 0 },
+  O: { x: 4, y: 0 },
+  T: { x: 3, y: 0 },
+  S: { x: 3, y: 0 },
+  Z: { x: 3, y: 0 },
+  J: { x: 3, y: 0 },
+  L: { x: 3, y: 0 },
 };
 
 // SRS (Super Rotation System) 벽킥 데이터
