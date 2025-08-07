@@ -229,28 +229,8 @@ export class LoggerService {
   /**
    * 라인 클리어 디버깅 로그
    */
-  logLineClear(
-    playerId: string,
-    data: {
-      linesCleared: number;
-      oldScore: number;
-      newScore: number;
-      oldLevel: number;
-      newLevel: number;
-      clearedLines?: number[];
-    },
-  ) {
-    this.logger.log(`[LINE_CLEAR] ${playerId}`, {
-      playerId,
-      linesCleared: data.linesCleared,
-      oldScore: data.oldScore,
-      newScore: data.newScore,
-      scoreIncrease: data.newScore - data.oldScore,
-      oldLevel: data.oldLevel,
-      newLevel: data.newLevel,
-      clearedLines: data.clearedLines,
-      timestamp: new Date().toISOString(),
-    });
+  logLineClear(playerId: string) {
+    this.logger.log(`[LINE_CLEAR] ${playerId}`);
   }
 
   /**

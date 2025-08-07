@@ -137,8 +137,8 @@ export class RedisService implements OnModuleDestroy {
     return games;
   }
 
-  async deleteGame(gameId: string): Promise<void> {
-    await this.redis.del(`player_game:${gameId}`);
+  async deleteGame(playerId: string): Promise<void> {
+    await this.redis.del(`player_game:${playerId}`);
   }
 
   // 플레이어 관련 메서드들

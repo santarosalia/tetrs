@@ -236,12 +236,6 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
       // 룸에서 나가기
       client.leave(data.roomId);
 
-      // 다른 플레이어들에게 플레이어 퇴장 알림
-      this.server.to(data.roomId).emit('playerLeft', {
-        playerId: data.playerId,
-        roomId: data.roomId,
-      });
-
       // 룸 상태 변경 이벤트 발행
       await this.gameService.publishRoomStateUpdate(data.roomId);
 

@@ -246,6 +246,7 @@ export class GameService {
   ): Promise<void> {
     try {
       // 룸 정보 가져오기
+      console.log('startPlayerGame', playerId, roomId);
       const room = await this.getRoom(roomId);
       if (!room) {
         throw new Error(`룸 ${roomId}을 찾을 수 없습니다.`);
@@ -329,15 +330,6 @@ export class GameService {
           roomSeed: room.roomSeed,
         },
       );
-
-      // 디버깅 로그 추가
-      this.logger.log(`게임 시작 - currentPiece 생성:`, {
-        playerId,
-        initialBag: initialBag,
-        currentPiece: initialGameState.currentPiece,
-        nextPiece: initialGameState.nextPiece,
-        ghostPiece: initialGameState.ghostPiece,
-      });
     } catch (error) {
       this.logger.logError(error);
     }
@@ -599,8 +591,6 @@ export class GameService {
               );
 
               // 라인 클리어 및 점수 계산
-              const oldScore = updatedState.score;
-              const oldLevel = updatedState.level;
               const clearResult =
                 this.tetrisLogic.clearLinesAndCalculateScoreForServer(
                   updatedState.board,
@@ -612,13 +602,7 @@ export class GameService {
 
               // 라인 클리어 로그
               if (clearResult.linesCleared > 0) {
-                this.logger.logLineClear(playerId, {
-                  linesCleared: clearResult.linesCleared,
-                  oldScore,
-                  newScore: updatedState.score,
-                  oldLevel,
-                  newLevel: updatedState.level,
-                });
+                this.logger.logLineClear(playerId);
               }
 
               // 다음 조각 생성
@@ -696,8 +680,7 @@ export class GameService {
             );
 
             // 라인 클리어 및 점수 계산
-            const oldScore = updatedState.score;
-            const oldLevel = updatedState.level;
+
             const clearResult =
               this.tetrisLogic.clearLinesAndCalculateScoreForServer(
                 updatedState.board,
@@ -709,13 +692,7 @@ export class GameService {
 
             // 라인 클리어 로그
             if (clearResult.linesCleared > 0) {
-              this.logger.logLineClear(playerId, {
-                linesCleared: clearResult.linesCleared,
-                oldScore,
-                newScore: updatedState.score,
-                oldLevel,
-                newLevel: updatedState.level,
-              });
+              this.logger.logLineClear(playerId);
             }
 
             // 다음 조각 생성
