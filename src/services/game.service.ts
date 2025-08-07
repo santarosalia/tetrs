@@ -1226,28 +1226,13 @@ export class GameService {
       });
     }
 
-    // 디버깅 로그 추가
-    this.logger.log(`클라이언트로 전송할 게임 상태:`, {
-      playerId,
-      originalCurrentPiece: gameState.currentPiece,
-      clientCurrentPiece: clientGameState.currentPiece,
-      originalGhostPiece: gameState.ghostPiece,
-      clientGhostPiece: clientGameState.ghostPiece,
-    });
-
-    this.logger.log(`게임 상태 업데이트 이벤트 발행: ${playerId}`, {
-      playerId,
-      gameState: clientGameState,
-    });
+    this.logger.log(`게임 상태 업데이트 이벤트 발행: ${playerId}`);
 
     // Redis에 게임 상태 업데이트 발행 (게임 시작 정보 포함)
     await this.redisService.publish(`game_state_update:${playerId}`, {
-      type: 'game_state_update',
       playerId,
-      gameState: {
-        ...clientGameState,
-        gameStarted: clientGameState.gameStarted, // 게임 시작 상태 명시적 포함
-      },
+      ...clientGameState,
+      gameStarted: clientGameState.gameStarted, // 게임 시작 상태 명시적 포함
       timestamp: Date.now(),
     });
   }
@@ -1701,7 +1686,7 @@ export class GameService {
   async publishGameEvent(
     gameId: string,
     event: string,
-    data: any,
+    data: PlayerGameState,
   ): Promise<void> {
     await this.redisService.publish(`game:${gameId}`, { event, data });
   }
@@ -1970,30 +1955,14 @@ export class GameService {
 
       // 룸의 다른 플레이어들에게 게임 오버 알림 (game_state_update로 통일)
       const roomId = playerState.roomId;
-      if (roomId) {
-        await this.publishGameEvent(roomId, 'gameStateUpdate', {
-          playerId,
-          gameState: {
-            gameOver: true,
-            score: playerState.score,
-            level: playerState.level,
-            linesCleared: playerState.linesCleared,
-          },
-          type: 'game_state_update',
-          timestamp: Date.now(),
-        });
-      }
 
       // 게임오버 상태를 game_state_update로 통일하여 전송
       await this.redisService.publish(`game_state_update:${playerId}`, {
-        type: 'game_state_update',
         playerId,
-        gameState: {
-          gameOver: true,
-          score: playerState.score,
-          level: playerState.level,
-          linesCleared: playerState.linesCleared,
-        },
+        gameOver: true,
+        score: playerState.score,
+        level: playerState.level,
+        linesCleared: playerState.linesCleared,
         timestamp: Date.now(),
       });
 

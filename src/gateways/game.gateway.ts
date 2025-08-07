@@ -110,49 +110,16 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
       );
 
       if (updatedState) {
-        // 4. 업데이트된 상태를 모든 클라이언트에게 브로드캐스트
-        client.broadcast
-          .to(updatedState.roomId)
-          .emit('playerGameStateChanged', {
-            playerId,
-            score: updatedState.score,
-            level: updatedState.level,
-            linesCleared: updatedState.linesCleared,
-            gameOver: updatedState.gameOver,
-            timestamp: Date.now(),
-          });
-
-        // 5. 개별 플레이어에게 상세 상태 전송
-        client.emit('gameStateUpdate', {
-          gameState: {
-            board: updatedState.board,
-            currentPiece: updatedState.currentPiece,
-            nextPiece: updatedState.nextPiece,
-            heldPiece: updatedState.heldPiece,
-            ghostPiece: updatedState.ghostPiece,
-            score: updatedState.score,
-            level: updatedState.level,
-            linesCleared: updatedState.linesCleared,
-            gameOver: updatedState.gameOver,
-            paused: updatedState.paused,
-            gameSeed: updatedState.gameSeed,
-            canHold: updatedState.canHold,
-          },
-        });
-
         // 6. 게임 오버 처리
         if (updatedState.gameOver) {
           await this.gameService.handleGameOver(playerId);
           // 게임 오버 상태를 gameStateUpdate로 통일하여 전송
           client.broadcast.to(updatedState.roomId).emit('gameStateUpdate', {
             playerId,
-            gameState: {
-              gameOver: true,
-              score: updatedState.score,
-              level: updatedState.level,
-              linesCleared: updatedState.linesCleared,
-            },
-            type: 'game_state_update',
+            gameOver: true,
+            score: updatedState.score,
+            level: updatedState.level,
+            linesCleared: updatedState.linesCleared,
             timestamp: Date.now(),
           });
         }
@@ -198,32 +165,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
       await this.gameService.publishPlayerStateChanged(roomId);
 
       // 룸 정보 조회 및 업데이트
-      const room = await this.gameService.getRoom(roomId);
       const currentPlayers = await this.gameService.getRoomPlayers(roomId);
-
-      let roomInfo = null;
-      if (room) {
-        // 룸 정보 구성
-        roomInfo = {
-          roomId: room.id,
-          playerCount: currentPlayers.length,
-          maxPlayers: 99, // 기본값
-          roomStatus: room.status || 'waiting',
-          averageScore: room.averageScore,
-          highestScore: room.highestScore,
-          createdAt: room.createdAt,
-        };
-
-        // 룸 통계 업데이트 (평균 점수, 최고 점수)
-        if (room.averageScore || room.highestScore) {
-          this.server.to(roomId).emit('roomStatsUpdate', {
-            roomStats: {
-              averageScore: room.averageScore,
-              highestScore: room.highestScore,
-            },
-          });
-        }
-      }
 
       // 기존 플레이어들에게 전체 방 상태 업데이트 알림 (통합된 이벤트)
       this.server.to(roomId).emit('roomStateUpdate', {
@@ -232,8 +174,6 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
         players: currentPlayers,
         gameState: roomGameState,
         newPlayer: player,
-        roomInfo,
-        playerCount: currentPlayers.length,
         timestamp: Date.now(),
       });
 
