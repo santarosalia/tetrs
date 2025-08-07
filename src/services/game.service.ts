@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from './prisma.service';
-import { RedisService } from './redis.service';
+import { PlayerState, RedisService } from './redis.service';
 import { CreateGameDto } from '../dto/create-game.dto';
 import { JoinGameDto } from '../dto/join-game.dto';
 
@@ -153,7 +153,6 @@ export class GameService {
           playerName: player.name,
         },
       );
-
       return { roomId: availableRoom.id, player };
     } catch (error) {
       this.logger.log(`자동 룸 배정 실패: ${error.message}`, { error });
@@ -772,9 +771,9 @@ export class GameService {
       // 게임 상태 변경 이벤트 발행
       await this.publishGameStateUpdate(playerId, updatedState);
 
-      // 플레이어 상태 변경 이벤트 발행 (룸의 다른 플레이어들에게 알림)
+      // 룸 상태 변경 이벤트 발행 (룸의 다른 플레이어들에게 알림)
       if (updatedState.roomId) {
-        await this.publishPlayerStateChanged(updatedState.roomId);
+        await this.publishRoomStateUpdate(updatedState.roomId);
       }
 
       this.logger.logGameLogic(playerId, action, {
@@ -866,9 +865,9 @@ export class GameService {
         await this.updatePlayerGameState(playerId, updatedState);
         await this.publishGameStateUpdate(playerId, updatedState);
 
-        // 플레이어 상태 변경 이벤트 발행 (룸의 다른 플레이어들에게 알림)
+        // 룸 상태 변경 이벤트 발행 (룸의 다른 플레이어들에게 알림)
         if (updatedState.roomId) {
-          await this.publishPlayerStateChanged(updatedState.roomId);
+          await this.publishRoomStateUpdate(updatedState.roomId);
         }
 
         return updatedState;
@@ -1352,12 +1351,12 @@ export class GameService {
   private async joinPlayerToRoom(
     roomId: string,
     joinGameDto: JoinGameDto,
-  ): Promise<any> {
+  ): Promise<PlayerState> {
     // Redis에 플레이어 생성
     const player = await this.redisService.createPlayer({
       name: joinGameDto.name,
       socketId: joinGameDto.socketId,
-      gameId: roomId,
+      roomId: roomId,
       status: 'ALIVE',
       score: 0,
       linesCleared: 0,
@@ -1712,7 +1711,7 @@ export class GameService {
       // Redis에서 해당 룸의 모든 플레이어 가져오기
       const allPlayers = await this.redisService.getAllPlayers();
       const roomPlayers = allPlayers.filter(
-        (player) => player.gameId === roomId,
+        (player) => player.roomId === roomId,
       );
 
       // 게임 상태 정보 포함 여부에 따라 처리
@@ -1764,7 +1763,7 @@ export class GameService {
   /**
    * 플레이어 상태 변경 시 Redis에 publish
    */
-  async publishPlayerStateChanged(roomId: string): Promise<void> {
+  async publishRoomStateUpdate(roomId: string): Promise<void> {
     try {
       const players = await this.getRoomPlayers(roomId, true);
 
@@ -1774,12 +1773,12 @@ export class GameService {
         timestamp: Date.now(),
       });
 
-      this.logger.log(`플레이어 상태 변경 이벤트 발행: ${roomId}`, {
+      this.logger.log(`룸 상태 변경 이벤트 발행: ${roomId}`, {
         roomId,
         playerCount: players.length,
       });
     } catch (error) {
-      this.logger.log(`플레이어 상태 변경 이벤트 발행 실패: ${error.message}`, {
+      this.logger.log(`룸 상태 변경 이벤트 발행 실패: ${error.message}`, {
         error,
         roomId,
       });
@@ -1868,9 +1867,9 @@ export class GameService {
         nextPiece: null,
       });
 
-      // 플레이어 상태 변경 이벤트 발행 (룸의 다른 플레이어들에게 알림)
+      // 룸 상태 변경 이벤트 발행 (룸의 다른 플레이어들에게 알림)
       if (roomId) {
-        await this.publishPlayerStateChanged(roomId);
+        await this.publishRoomStateUpdate(roomId);
       }
 
       // 플레이어 상태 정리
@@ -2052,5 +2051,15 @@ export class GameService {
     } catch (error) {
       this.logger.logError(error);
     }
+  }
+
+  async leaveGame(socketId: string): Promise<void> {
+    const player = await this.redisService.getPlayerBySocketId(socketId);
+    if (player) {
+      this.publishRoomStateUpdate(player.roomId);
+    }
+    this.redisService.deleteGameBySocketId(socketId);
+    this.redisService.deletePlayerBySocketId(socketId);
+    this.redisService.del(`socket:${socketId}`);
   }
 }

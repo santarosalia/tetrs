@@ -1,6 +1,7 @@
 import { Injectable, OnModuleDestroy } from '@nestjs/common';
 import Redis from 'ioredis';
 import { LoggerService } from '../common/services/logger.service';
+import { v4 as uuidv4 } from 'uuid';
 
 export interface GameState {
   id: string;
@@ -22,7 +23,7 @@ export interface PlayerState {
   score: number;
   linesCleared: number;
   level: number;
-  gameId?: string;
+  roomId?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -91,8 +92,8 @@ export class RedisService implements OnModuleDestroy {
     return game;
   }
 
-  async getGame(gameId: string): Promise<GameState | null> {
-    const gameData = await this.redis.get(`game:${gameId}`);
+  async getGame(playerId: string): Promise<GameState | null> {
+    const gameData = await this.redis.get(`player_game:${playerId}`);
     if (!gameData) {
       return null;
     }
@@ -100,7 +101,7 @@ export class RedisService implements OnModuleDestroy {
     try {
       return JSON.parse(gameData) as GameState;
     } catch (error) {
-      this.logger.error('Failed to parse game data', error.stack, { gameId });
+      this.logger.error('Failed to parse game data', error.stack, { playerId });
       return null;
     }
   }
@@ -137,8 +138,7 @@ export class RedisService implements OnModuleDestroy {
   }
 
   async deleteGame(gameId: string): Promise<void> {
-    await this.redis.del(`game:${gameId}`);
-    await this.redis.srem('games', gameId);
+    await this.redis.del(`player_game:${gameId}`);
   }
 
   // 플레이어 관련 메서드들
@@ -155,12 +155,12 @@ export class RedisService implements OnModuleDestroy {
     };
 
     await this.redis.set(`player:${id}`, JSON.stringify(player));
-    if (player.gameId) {
-      await this.redis.sadd(`game:${player.gameId}:players`, id);
+    if (player.roomId) {
+      await this.redis.sadd(`game:${player.roomId}:players`, id);
     }
     await this.redis.sadd('players', id);
     await this.redis.expire(`player:${id}`, 3600); // 1시간 후 만료
-
+    await this.redis.set(`socket:${playerData.socketId}`, id);
     return player;
   }
 
@@ -177,6 +177,35 @@ export class RedisService implements OnModuleDestroy {
         playerId,
       });
       return null;
+    }
+  }
+  async getPlayerBySocketId(socketId: string): Promise<PlayerState | null> {
+    const playerId = await this.redis.get(`socket:${socketId}`);
+    if (!playerId) {
+      return null;
+    }
+    return this.getPlayer(playerId);
+  }
+
+  async deletePlayerBySocketId(socketId: string): Promise<void> {
+    const playerId = await this.redis.get(`socket:${socketId}`);
+    if (playerId) {
+      await this.deletePlayer(playerId);
+    }
+  }
+
+  async getGameBySocketId(socketId: string): Promise<GameState | null> {
+    const playerId = await this.redis.get(`socket:${socketId}`);
+    if (!playerId) {
+      return null;
+    }
+    return this.getGame(playerId);
+  }
+
+  async deleteGameBySocketId(socketId: string): Promise<void> {
+    const playerId = await this.redis.get(`socket:${socketId}`);
+    if (playerId) {
+      await this.deleteGame(playerId);
     }
   }
 
@@ -227,8 +256,8 @@ export class RedisService implements OnModuleDestroy {
 
   async deletePlayer(playerId: string): Promise<void> {
     const player = await this.getPlayer(playerId);
-    if (player && player.gameId) {
-      await this.redis.srem(`game:${player.gameId}:players`, playerId);
+    if (player && player.roomId) {
+      await this.redis.srem(`game:${player.roomId}:players`, playerId);
     }
     await this.redis.del(`player:${playerId}`);
     await this.redis.srem('players', playerId);
@@ -295,7 +324,7 @@ export class RedisService implements OnModuleDestroy {
 
   // 유틸리티 메서드
   private generateId(): string {
-    return Math.random().toString(36).substring(2) + Date.now().toString(36);
+    return uuidv4();
   }
 
   // 게임 통계 업데이트

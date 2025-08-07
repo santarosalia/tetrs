@@ -73,6 +73,8 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
     this.logger.logWebSocketDisconnection(client.id, {
       ip: client.handshake.address,
     });
+
+    this.gameService.leaveGame(client.id);
   }
 
   @SubscribeMessage('handlePlayerInput')
@@ -171,8 +173,8 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
       // 신규 플레이어에게 룸의 전체 게임 상태 전송
       const roomGameState = await this.gameService.getRoomGameState(roomId);
 
-      // 플레이어 상태 변경 이벤트 발행
-      await this.gameService.publishPlayerStateChanged(roomId);
+      // 룸 상태 변경 이벤트 발행
+      await this.gameService.publishRoomStateUpdate(roomId);
 
       // 룸 정보 조회 및 업데이트
       const currentPlayers = await this.gameService.getRoomPlayers(roomId);
@@ -240,8 +242,8 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
         roomId: data.roomId,
       });
 
-      // 플레이어 상태 변경 이벤트 발행
-      await this.gameService.publishPlayerStateChanged(data.roomId);
+      // 룸 상태 변경 이벤트 발행
+      await this.gameService.publishRoomStateUpdate(data.roomId);
 
       // 룸 정보 업데이트
       const room = await this.gameService.getRoom(data.roomId);
