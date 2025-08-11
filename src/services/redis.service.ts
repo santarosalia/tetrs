@@ -19,10 +19,6 @@ export interface PlayerState {
   id: string;
   name: string;
   socketId: string;
-  status: 'ALIVE' | 'ELIMINATED' | 'SPECTATING';
-  score: number;
-  linesCleared: number;
-  level: number;
   roomId?: string;
   createdAt: string;
   updatedAt: string;
@@ -339,23 +335,6 @@ export class RedisService implements OnModuleDestroy {
         linesSent: game.linesSent + linesSent,
         linesReceived: game.linesReceived + linesReceived,
       });
-    }
-  }
-
-  // 플레이어 통계 업데이트
-  async updatePlayerStats(
-    playerId: string,
-    stats: { score?: number; linesCleared?: number; level?: number },
-  ): Promise<void> {
-    const player = await this.getPlayer(playerId);
-    if (player) {
-      const updates: Partial<PlayerState> = {};
-      if (stats.score !== undefined) updates.score = player.score + stats.score;
-      if (stats.linesCleared !== undefined)
-        updates.linesCleared = player.linesCleared + stats.linesCleared;
-      if (stats.level !== undefined) updates.level = stats.level;
-
-      await this.updatePlayer(playerId, updates);
     }
   }
 

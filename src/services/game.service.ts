@@ -25,7 +25,6 @@ export interface PlayerGameState {
   board: number[][];
   gameOver: boolean;
   paused: boolean;
-  isGameStarted: boolean;
   startTime: Date;
   lastActivity: Date;
   // 7-bag 시스템
@@ -42,13 +41,6 @@ export interface PlayerGameState {
 export class GameService {
   private readonly MAX_PLAYERS_PER_ROOM = 99;
   private gameTimers = new Map<string, NodeJS.Timeout>();
-
-  // 성능 최적화를 위한 캐시
-  private readonly gameStateCache = new Map<
-    string,
-    { state: PlayerGameState; timestamp: number }
-  >();
-  private readonly CACHE_TTL = 5000; // 5초 캐시 TTL
 
   constructor(
     private readonly prisma: PrismaService,
@@ -136,7 +128,14 @@ export class GameService {
 
       // 3. 플레이어를 룸에 참여시킴
       const player = await this.joinPlayerToRoom(availableRoom.id, joinGameDto);
-
+      this.logger.log(
+        `플레이어 ${player.name}이(가) 룸 ${availableRoom.id}에 배정됨`,
+        {
+          roomId: availableRoom.id,
+          playerId: player.id,
+          playerName: player.name,
+        },
+      );
       // 4. 개인 게임 상태 초기화 (게임 시작하지 않음)
       await this.initializePlayerGameState(player.id, availableRoom.id);
 
@@ -145,14 +144,7 @@ export class GameService {
 
       // 6. 자동 게임 시작
       await this.startPlayerGame(player.id, availableRoom.id);
-      this.logger.log(
-        `플레이어 ${player.name}이(가) 자동으로 룸 ${availableRoom.id}에 배정됨`,
-        {
-          roomId: availableRoom.id,
-          playerId: player.id,
-          playerName: player.name,
-        },
-      );
+
       return { roomId: availableRoom.id, player };
     } catch (error) {
       this.logger.log(`자동 룸 배정 실패: ${error.message}`, { error });
@@ -194,7 +186,6 @@ export class GameService {
       board: this.tetrisLogic.createEmptyBoard(),
       gameOver: false,
       paused: false,
-      isGameStarted: false,
       startTime: new Date(),
       lastActivity: new Date(),
       tetrominoBag: initialBag,
@@ -280,7 +271,6 @@ export class GameService {
         board: this.tetrisLogic.createEmptyBoard(),
         gameOver: false,
         paused: false,
-        isGameStarted: true,
         startTime: new Date(),
         lastActivity: new Date(),
         tetrominoBag: initialBag,
@@ -289,23 +279,6 @@ export class GameService {
         gameSeed,
       };
 
-      // 디버깅 로그 추가
-      this.logger.log(`게임 시작 - currentPiece 생성:`, {
-        playerId,
-        initialBag: initialBag,
-        currentPiece: initialGameState.currentPiece,
-        nextPiece: initialGameState.nextPiece,
-        ghostPiece: initialGameState.ghostPiece,
-      });
-
-      // currentPiece 생성 확인 로그
-      this.logger.log(`currentPiece 생성 확인:`, {
-        playerId,
-        initialBag0: initialBag[0],
-        createdPiece: this.tetrisLogic.createTetrisBlock(initialBag[0]),
-        finalCurrentPiece: initialGameState.currentPiece,
-      });
-
       // Redis에 게임 상태 저장
       await this.redisService.set(
         `player_game:${playerId}`,
@@ -313,7 +286,8 @@ export class GameService {
       );
 
       // 게임 타이머 시작 (레벨 1로 시작)
-      this.restartGameTimerWithLevel(playerId, initialGameState.level);
+      this.startGameTimer(playerId);
+      // this.restartGameTimerWithLevel(playerId, initialGameState.level);
 
       // 클라이언트에게 초기 게임 상태 전송 (게임 시작 정보 포함)
       await this.publishGameStateUpdate(playerId, initialGameState);
@@ -339,14 +313,6 @@ export class GameService {
    */
   async getPlayerGameState(playerId: string): Promise<PlayerGameState | null> {
     try {
-      // 캐시에서 먼저 확인
-      const cached = this.gameStateCache.get(playerId);
-      const now = Date.now();
-
-      if (cached && now - cached.timestamp < this.CACHE_TTL) {
-        return cached.state;
-      }
-
       const gameStateData = await this.redisService.get(
         `player_game:${playerId}`,
       );
@@ -365,14 +331,6 @@ export class GameService {
           const updatedGameState = updatedGameStateData
             ? JSON.parse(updatedGameStateData)
             : null;
-
-          // 캐시 업데이트
-          if (updatedGameState) {
-            this.gameStateCache.set(playerId, {
-              state: updatedGameState,
-              timestamp: now,
-            });
-          }
 
           return updatedGameState;
         }
@@ -397,21 +355,7 @@ export class GameService {
           JSON.stringify(updatedGameState),
         );
 
-        // 캐시 업데이트
-        this.gameStateCache.set(playerId, {
-          state: updatedGameState,
-          timestamp: now,
-        });
-
         return updatedGameState;
-      }
-
-      // 캐시 업데이트
-      if (gameState) {
-        this.gameStateCache.set(playerId, {
-          state: gameState,
-          timestamp: now,
-        });
       }
 
       return gameState;
@@ -422,11 +366,6 @@ export class GameService {
       });
       return null;
     }
-  }
-
-  // 캐시 무효화 메서드
-  private invalidateCache(playerId: string): void {
-    this.gameStateCache.delete(playerId);
   }
 
   /**
@@ -451,9 +390,6 @@ export class GameService {
       // Redis에 직접 저장 (JSON.stringify 최적화)
       const serializedState = JSON.stringify(updatedState);
       await this.redisService.set(`player_game:${playerId}`, serializedState);
-
-      // 캐시 무효화
-      this.invalidateCache(playerId);
     } catch (error) {
       this.logger.log(`플레이어 게임 상태 업데이트 실패: ${error.message}`, {
         error,
@@ -1333,10 +1269,6 @@ export class GameService {
       name: joinGameDto.name,
       socketId: joinGameDto.socketId,
       roomId: roomId,
-      status: 'ALIVE',
-      score: 0,
-      linesCleared: 0,
-      level: 0,
     });
 
     // 룸의 플레이어 수 증가
@@ -1378,31 +1310,6 @@ export class GameService {
     if (room && room.currentPlayers > 0) {
       room.currentPlayers -= 1;
       await this.redisService.set(`room:${roomId}`, JSON.stringify(room));
-    }
-  }
-
-  /**
-   * 게임 자동 시작
-   */
-  private async autoStartGame(roomId: string): Promise<void> {
-    try {
-      // 룸 상태를 PLAYING으로 업데이트
-      await this.updateRoomStatus(roomId, 'PLAYING');
-
-      // 룸의 모든 플레이어 게임 시작
-      const players = await this.getRoomPlayers(roomId);
-      for (const player of players) {
-        if (player.id) {
-          await this.startPlayerGame(player.id, roomId);
-        }
-      }
-
-      this.logger.log(`게임 자동 시작: ${roomId}`, { roomId });
-    } catch (error) {
-      this.logger.log(`게임 자동 시작 실패: ${error.message}`, {
-        error,
-        roomId,
-      });
     }
   }
 
@@ -2019,9 +1926,6 @@ export class GameService {
     try {
       // 모든 타이머 정리
       this.cleanupTimers();
-
-      // 캐시 정리
-      this.gameStateCache.clear();
 
       this.logger.log('GameService 정리 완료');
     } catch (error) {
