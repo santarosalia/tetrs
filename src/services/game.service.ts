@@ -246,7 +246,6 @@ export class GameService {
   ): Promise<void> {
     try {
       // 룸 정보 가져오기
-      console.log('startPlayerGame', playerId, roomId);
       const room = await this.getRoom(roomId);
       if (!room) {
         throw new Error(`룸 ${roomId}을 찾을 수 없습니다.`);
