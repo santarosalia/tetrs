@@ -14,7 +14,6 @@ import { NetworkSyncService } from '../services/network-sync.service';
 import { JoinGameDto } from '../dto/join-game.dto';
 import { WsException } from '@nestjs/websockets';
 import { LoggerService } from '../common/services/logger.service';
-import { TetrisMapService } from '../services/tetris-map.service';
 
 @WebSocketGateway({
   cors: {
@@ -30,7 +29,6 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
     private readonly redisService: RedisService,
     private readonly networkSyncService: NetworkSyncService,
     private readonly logger: LoggerService,
-    private readonly tetrisMapService: TetrisMapService,
   ) {
     // Redis 구독 설정
     this.setupRedisSubscriptions();

@@ -5,7 +5,6 @@ import { CreateGameDto } from '../dto/create-game.dto';
 import { JoinGameDto } from '../dto/join-game.dto';
 
 import { LoggerService } from '../common/services/logger.service';
-import { TetrisMapService } from './tetris-map.service';
 import { TetrisLogicService } from './tetris-logic.service';
 import { TetrisBlock } from '../common/interfaces/tetris-map.interface';
 import { TetrominoType } from '../common/interfaces/shared.interface';
@@ -24,7 +23,6 @@ export interface PlayerGameState {
   ghostPiece: TetrisBlock | null;
   board: number[][];
   gameOver: boolean;
-  paused: boolean;
   startTime: Date;
   lastActivity: Date;
   // 7-bag 시스템
@@ -46,7 +44,6 @@ export class GameService {
     private readonly prisma: PrismaService,
     private readonly redisService: RedisService,
     private readonly logger: LoggerService,
-    private readonly tetrisMapService: TetrisMapService,
     private readonly tetrisLogic: TetrisLogicService,
   ) {}
 
@@ -185,7 +182,6 @@ export class GameService {
       ghostPiece: null,
       board: this.tetrisLogic.createEmptyBoard(),
       gameOver: false,
-      paused: false,
       startTime: new Date(),
       lastActivity: new Date(),
       tetrominoBag: initialBag,
@@ -270,7 +266,6 @@ export class GameService {
         ),
         board: this.tetrisLogic.createEmptyBoard(),
         gameOver: false,
-        paused: false,
         startTime: new Date(),
         lastActivity: new Date(),
         tetrominoBag: initialBag,
@@ -1694,7 +1689,6 @@ export class GameService {
               heldPiece: gameState.heldPiece,
               canHold: gameState.canHold,
               board: gameState.board,
-              paused: gameState.paused,
             }
           : null,
       };

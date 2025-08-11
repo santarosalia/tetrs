@@ -3,7 +3,6 @@ import { GameController } from '../controllers/game.controller';
 import { GameGateway } from '../gateways/game.gateway';
 import { GameService } from '../services/game.service';
 import { TetrisLogicService } from '../services/tetris-logic.service';
-import { TetrisMapService } from '../services/tetris-map.service';
 import { NetworkSyncService } from '../services/network-sync.service';
 import { PrismaService } from '../services/prisma.service';
 import { RedisService } from '../services/redis.service';
@@ -16,7 +15,6 @@ import { LoggerService } from '../common/services/logger.service';
     GameGateway,
     GameService,
     TetrisLogicService,
-    TetrisMapService,
     NetworkSyncService,
     PrismaService,
     RedisService,
@@ -27,7 +25,6 @@ import { LoggerService } from '../common/services/logger.service';
     GameGateway,
     GameService,
     TetrisLogicService,
-    TetrisMapService,
     NetworkSyncService,
     PrismaService,
     RedisService,
