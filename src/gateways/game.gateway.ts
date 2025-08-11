@@ -10,7 +10,6 @@ import {
 import { Server, Socket } from 'socket.io';
 import { GameService } from '../services/game.service';
 import { RedisService } from '../services/redis.service';
-import { NetworkSyncService } from '../services/network-sync.service';
 import { JoinGameDto } from '../dto/join-game.dto';
 import { WsException } from '@nestjs/websockets';
 import { LoggerService } from '../common/services/logger.service';
@@ -27,7 +26,6 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
   constructor(
     private readonly gameService: GameService,
     private readonly redisService: RedisService,
-    private readonly networkSyncService: NetworkSyncService,
     private readonly logger: LoggerService,
   ) {
     // Redis 구독 설정
@@ -227,9 +225,6 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
   ) {
     try {
       await this.gameService.leaveGameAuto(data.roomId, data.playerId);
-
-      // 클라이언트 상태 정리
-      this.networkSyncService.cleanupClientState(data.playerId);
 
       // 룸에서 나가기
       client.leave(data.roomId);
