@@ -1844,34 +1844,6 @@ export class GameService {
     return null;
   }
 
-  /**
-   * 유효한 위치 찾기
-   */
-  private findValidPosition(piece: any, board: number[][]): any | null {
-    // 스폰 위치부터 시작하여 유효한 위치 찾기
-    const spawnPositions = [
-      { x: 3, y: 0 }, // 기본 스폰 위치
-      { x: 2, y: 0 }, // 왼쪽으로 1칸
-      { x: 4, y: 0 }, // 오른쪽으로 1칸
-      { x: 3, y: 1 }, // 아래로 1칸
-      { x: 2, y: 1 }, // 왼쪽으로 1칸, 아래로 1칸
-      { x: 4, y: 1 }, // 오른쪽으로 1칸, 아래로 1칸
-    ];
-
-    for (const pos of spawnPositions) {
-      const testPiece = {
-        ...piece,
-        position: pos,
-      };
-
-      if (this.tetrisLogic.isValidPositionForServer(testPiece, board)) {
-        return testPiece;
-      }
-    }
-
-    return null;
-  }
-
   // 레벨에 따른 드롭 간격 계산
   private calculateDropInterval(level: number): number {
     // 표준 테트리스 속도 공식: (0.8 - ((level - 1) * 0.007))^(level - 1) * 1000

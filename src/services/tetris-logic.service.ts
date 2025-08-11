@@ -66,18 +66,6 @@ export class TetrisLogicService extends TetrisCoreService {
     };
   }
 
-  // 서버 전용 드롭 로직
-  dropTetrisBlock(tetrisBlock: TetrisBlock, board: number[][]): TetrisBlock {
-    const droppedTetromino = this.dropTetromino(tetrisBlock, board);
-
-    return {
-      ...droppedTetromino,
-      falling: false,
-      lockDelay: 0,
-      dropTime: 0,
-    };
-  }
-
   // 서버 전용 하드 드롭 로직
   hardDropTetrisBlock(
     currentPiece: TetrisBlock,
@@ -93,21 +81,6 @@ export class TetrisLogicService extends TetrisCoreService {
         dropTime: 0,
       },
       dropDistance,
-    };
-  }
-
-  // 서버 전용 고스트 피스 로직
-  getGhostTetrisBlock(
-    tetrisBlock: TetrisBlock,
-    board: number[][],
-  ): TetrisBlock {
-    const ghostTetromino = this.getGhostPiece(tetrisBlock, board);
-
-    return {
-      ...ghostTetromino,
-      falling: false,
-      lockDelay: 0,
-      dropTime: 0,
     };
   }
 
@@ -137,60 +110,6 @@ export class TetrisLogicService extends TetrisCoreService {
     } catch (error) {
       throw new TetrisLogicException('Failed to check game over', {
         board,
-        error: error instanceof Error ? error.message : String(error),
-      });
-    }
-  }
-
-  // 서버 전용 드롭 간격 계산 (추가 로직 포함)
-  calculateDropIntervalForServer(
-    level: number,
-    distanceToBottom: number = 0,
-    lockDelay: number = 0,
-  ): number {
-    const baseInterval = this.calculateDropInterval(level, distanceToBottom);
-
-    // 락 딜레이가 있으면 더 느리게
-    if (lockDelay > 0) {
-      return Math.max(baseInterval, 500); // 최소 500ms
-    }
-
-    return baseInterval;
-  }
-
-  // 서버 전용 바닥까지의 거리 계산
-  calculateDistanceToBottomForServer(
-    piece: TetrisBlock,
-    board: number[][],
-  ): number {
-    if (!piece) return 0;
-
-    try {
-      return this.calculateDistanceToBottom(piece, board);
-    } catch (error) {
-      throw new TetrisLogicException('Failed to calculate distance to bottom', {
-        piece,
-        board,
-        error: error instanceof Error ? error.message : String(error),
-      });
-    }
-  }
-
-  // 서버 전용 유효성 검사
-  isValidPositionForServer(
-    tetrisBlock: TetrisBlock,
-    board: number[][],
-    offsetX: number = 0,
-    offsetY: number = 0,
-  ): boolean {
-    try {
-      return this.isValidPosition(tetrisBlock, board, offsetX, offsetY);
-    } catch (error) {
-      throw new TetrisLogicException('Failed to validate position', {
-        tetrisBlock,
-        board,
-        offsetX,
-        offsetY,
         error: error instanceof Error ? error.message : String(error),
       });
     }
