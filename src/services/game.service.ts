@@ -256,12 +256,12 @@ export class GameService {
         score: 0,
         level: 1,
         linesCleared: 0,
-        currentPiece: this.tetrisLogic.createTetrisBlock(initialBag[0]), // 첫 번째 조각을 현재 조각으로
+        currentPiece: this.tetrisLogic.createTetromino(initialBag[0]), // 첫 번째 조각을 현재 조각으로
         nextPiece: initialBag[1], // 두 번째 조각을 다음 조각으로
         heldPiece: null,
         canHold: true,
         ghostPiece: this.tetrisLogic.getGhostPiece(
-          this.tetrisLogic.createTetrisBlock(initialBag[0]),
+          this.tetrisLogic.createTetromino(initialBag[0]),
           this.tetrisLogic.createEmptyBoard(),
         ),
         board: this.tetrisLogic.createEmptyBoard(),
@@ -304,54 +304,16 @@ export class GameService {
   }
 
   /**
-   * 플레이어 게임 상태 가져오기 (캐시 최적화됨)
+   * 플레이어 게임 상태 가져오기
    */
   async getPlayerGameState(playerId: string): Promise<PlayerGameState | null> {
     try {
       const gameStateData = await this.redisService.get(
         `player_game:${playerId}`,
       );
-      const gameState = gameStateData ? JSON.parse(gameStateData) : null;
-
-      // 게임이 시작되었는데 currentPiece가 null인 경우 새로운 피스 생성
-      if (gameState && gameState.gameStarted && !gameState.currentPiece) {
-        // 게임이 시작되었지만 currentPiece가 null인 경우 게임을 다시 시작
-        if (gameState.gameStarted && !gameState.currentPiece) {
-          await this.startPlayerGame(playerId, gameState.roomId);
-
-          // 다시 게임 상태를 가져옴
-          const updatedGameStateData = await this.redisService.get(
-            `player_game:${playerId}`,
-          );
-          const updatedGameState = updatedGameStateData
-            ? JSON.parse(updatedGameStateData)
-            : null;
-
-          return updatedGameState;
-        }
-
-        // 새로운 피스 생성
-        const newPiece = this.tetrisLogic.createTetrisBlock(
-          gameState.nextPiece,
-        );
-        const nextPiece = this.getNextPiece(gameState);
-
-        // 게임 상태 업데이트
-        const updatedGameState = {
-          ...gameState,
-          currentPiece: newPiece,
-          nextPiece: nextPiece,
-          ghostPiece: this.tetrisLogic.getGhostPiece(newPiece, gameState.board),
-        };
-
-        // Redis에 업데이트된 상태 저장
-        await this.redisService.set(
-          `player_game:${playerId}`,
-          JSON.stringify(updatedGameState),
-        );
-
-        return updatedGameState;
-      }
+      const gameState: PlayerGameState | null = gameStateData
+        ? JSON.parse(gameStateData)
+        : null;
 
       return gameState;
     } catch (error) {
@@ -364,7 +326,7 @@ export class GameService {
   }
 
   /**
-   * 플레이어 게임 상태 업데이트 (캐시 최적화됨)
+   * 플레이어 게임 상태 업데이트
    */
   async updatePlayerGameState(
     playerId: string,
@@ -375,14 +337,12 @@ export class GameService {
       if (!gameState) {
         throw new Error('플레이어 게임 상태를 찾을 수 없습니다');
       }
-
       const updatedState = {
         ...gameState,
         ...updates,
         lastActivity: new Date(),
       };
 
-      // Redis에 직접 저장 (JSON.stringify 최적화)
       const serializedState = JSON.stringify(updatedState);
       await this.redisService.set(`player_game:${playerId}`, serializedState);
     } catch (error) {
@@ -391,17 +351,6 @@ export class GameService {
         playerId,
       });
     }
-  }
-
-  // 최적화된 게임 상태 업데이트 (배치 처리)
-  async updatePlayerGameStateBatch(
-    updates: Array<{ playerId: string; updates: Partial<PlayerGameState> }>,
-  ): Promise<void> {
-    const promises = updates.map(async ({ playerId, updates }) => {
-      return this.updatePlayerGameState(playerId, updates);
-    });
-
-    await Promise.all(promises);
   }
 
   /**
@@ -444,29 +393,27 @@ export class GameService {
     action: string,
   ): Promise<PlayerGameState | null> {
     try {
-      const playerState = await this.getPlayerGameState(playerId);
-      if (!playerState || playerState.gameOver) {
+      const gameState = await this.getPlayerGameState(playerId);
+      if (!gameState || gameState.gameOver) {
         return null;
       }
-
-      const updatedState = { ...playerState };
 
       // 서버에서 게임 로직 처리
       switch (action) {
         case 'moveLeft':
-          if (updatedState.currentPiece) {
-            const movedPiece = this.tetrisLogic.moveTetrisBlock(
-              updatedState.currentPiece,
-              updatedState.board,
+          if (gameState.currentPiece) {
+            const movedPiece = this.tetrisLogic.moveTetromino(
+              gameState.currentPiece,
+              gameState.board,
               -1,
               0,
             );
             if (movedPiece) {
-              updatedState.currentPiece = movedPiece;
+              gameState.currentPiece = movedPiece;
               // 고스트 피스 업데이트
-              updatedState.ghostPiece = this.tetrisLogic.getGhostPiece(
+              gameState.ghostPiece = this.tetrisLogic.getGhostPiece(
                 movedPiece,
-                updatedState.board,
+                gameState.board,
               );
               this.logger.logPieceMovement(playerId, 'moveLeft');
             } else {
@@ -476,19 +423,19 @@ export class GameService {
           break;
 
         case 'moveRight':
-          if (updatedState.currentPiece) {
-            const movedPiece = this.tetrisLogic.moveTetrisBlock(
-              updatedState.currentPiece,
-              updatedState.board,
+          if (gameState.currentPiece) {
+            const movedPiece = this.tetrisLogic.moveTetromino(
+              gameState.currentPiece,
+              gameState.board,
               1,
               0,
             );
             if (movedPiece) {
-              updatedState.currentPiece = movedPiece;
+              gameState.currentPiece = movedPiece;
               // 고스트 피스 업데이트
-              updatedState.ghostPiece = this.tetrisLogic.getGhostPiece(
+              gameState.ghostPiece = this.tetrisLogic.getGhostPiece(
                 movedPiece,
-                updatedState.board,
+                gameState.board,
               );
               this.logger.logPieceMovement(playerId, 'moveRight');
             } else {
@@ -498,37 +445,36 @@ export class GameService {
           break;
 
         case 'moveDown':
-          if (updatedState.currentPiece) {
-            const movedPiece = this.tetrisLogic.moveTetrisBlock(
-              updatedState.currentPiece,
-              updatedState.board,
+          if (gameState.currentPiece) {
+            const movedPiece = this.tetrisLogic.moveTetromino(
+              gameState.currentPiece,
+              gameState.board,
               0,
               1,
             );
             if (movedPiece) {
-              updatedState.currentPiece = movedPiece;
+              gameState.currentPiece = movedPiece;
               // 고스트 피스 업데이트
-              updatedState.ghostPiece = this.tetrisLogic.getGhostPiece(
+              gameState.ghostPiece = this.tetrisLogic.getGhostPiece(
                 movedPiece,
-                updatedState.board,
+                gameState.board,
               );
               this.logger.logPieceMovement(playerId, 'moveDown');
             } else {
               // 조각을 보드에 고정
-              updatedState.board = this.tetrisLogic.placeTetrisBlock(
-                updatedState.currentPiece,
-                updatedState.board,
+              gameState.board = this.tetrisLogic.placeTetrisBlock(
+                gameState.currentPiece,
+                gameState.board,
               );
 
               // 라인 클리어 및 점수 계산
-              const clearResult =
-                this.tetrisLogic.clearLinesAndCalculateScoreForServer(
-                  updatedState.board,
-                  updatedState.level,
-                );
-              updatedState.board = clearResult.newBoard;
-              updatedState.linesCleared += clearResult.linesCleared;
-              updatedState.score += clearResult.score;
+              const clearResult = this.tetrisLogic.clearLinesAndCalculateScore(
+                gameState.board,
+                gameState.level,
+              );
+              gameState.board = clearResult.newBoard;
+              gameState.linesCleared += clearResult.linesCleared;
+              gameState.score += clearResult.score;
 
               // 라인 클리어 로그
               if (clearResult.linesCleared > 0) {
@@ -536,38 +482,34 @@ export class GameService {
               }
 
               // 다음 조각 생성
-              updatedState.currentPiece = this.createNewPiece(updatedState);
-              updatedState.nextPiece = this.getNextPiece(updatedState);
+              gameState.currentPiece = this.createNewPiece(gameState);
+              gameState.nextPiece = this.getNextPiece(gameState);
               // 고스트 피스 업데이트
-              updatedState.ghostPiece = this.tetrisLogic.getGhostPiece(
-                updatedState.currentPiece,
-                updatedState.board,
+              gameState.ghostPiece = this.tetrisLogic.getGhostPiece(
+                gameState.currentPiece,
+                gameState.board,
               );
 
               // 7-bag 시스템 로그
               this.logger.logTetrominoBag(playerId, 'nextPiece', {
-                bag: updatedState.tetrominoBag,
-                bagIndex: updatedState.bagIndex,
-                nextPiece: updatedState.nextPiece,
-                bagLength: updatedState.tetrominoBag.length,
+                bag: gameState.tetrominoBag,
+                bagIndex: gameState.bagIndex,
+                nextPiece: gameState.nextPiece,
+                bagLength: gameState.tetrominoBag.length,
                 willRegenerate:
-                  updatedState.bagIndex >= updatedState.tetrominoBag.length,
+                  gameState.bagIndex >= gameState.tetrominoBag.length,
               });
 
               // 레벨 업데이트
-              updatedState.level = this.calculateLevel(
-                updatedState.linesCleared,
-              );
+              gameState.level = this.calculateLevel(gameState.linesCleared);
 
               // 레벨이 변경되었으면 타이머 재시작
-              if (updatedState.level !== playerState.level) {
-                this.restartGameTimerWithLevel(playerId, updatedState.level);
+              if (gameState.level !== gameState.level) {
+                this.restartGameTimerWithLevel(playerId, gameState.level);
               }
 
               // 표준 테트리스 게임오버 체크: 새로운 피스가 스폰될 수 없으면 게임오버
-              updatedState.gameOver = this.tetrisLogic.isGameOverForServer(
-                updatedState.board,
-              );
+              gameState.gameOver = this.tetrisLogic.isGameOver(gameState.board);
 
               this.logger.logPieceMovement(playerId, 'moveDown');
             }
@@ -575,17 +517,17 @@ export class GameService {
           break;
 
         case 'rotate':
-          if (updatedState.currentPiece) {
+          if (gameState.currentPiece) {
             const rotatedPiece = this.tetrisLogic.rotateTetrisBlockWithWallKick(
-              updatedState.currentPiece,
-              updatedState.board,
+              gameState.currentPiece,
+              gameState.board,
             );
             if (rotatedPiece) {
-              updatedState.currentPiece = rotatedPiece;
+              gameState.currentPiece = rotatedPiece;
               // 고스트 피스 업데이트
-              updatedState.ghostPiece = this.tetrisLogic.getGhostPiece(
+              gameState.ghostPiece = this.tetrisLogic.getGhostPiece(
                 rotatedPiece,
-                updatedState.board,
+                gameState.board,
               );
               this.logger.logPieceMovement(playerId, 'rotate');
             } else {
@@ -595,30 +537,29 @@ export class GameService {
           break;
 
         case 'hardDrop':
-          if (updatedState.currentPiece) {
+          if (gameState.currentPiece) {
             const dropResult = this.tetrisLogic.hardDropTetrisBlock(
-              updatedState.currentPiece,
-              updatedState.board,
+              gameState.currentPiece,
+              gameState.board,
             );
-            updatedState.currentPiece = dropResult.droppedPiece;
-            updatedState.score += dropResult.dropDistance * 2; // 하드드롭 보너스
+            gameState.currentPiece = dropResult.droppedPiece;
+            gameState.score += dropResult.dropDistance * 2; // 하드드롭 보너스
 
             // 조각을 보드에 고정
-            updatedState.board = this.tetrisLogic.placeTetrisBlock(
-              updatedState.currentPiece,
-              updatedState.board,
+            gameState.board = this.tetrisLogic.placeTetrisBlock(
+              gameState.currentPiece,
+              gameState.board,
             );
 
             // 라인 클리어 및 점수 계산
 
-            const clearResult =
-              this.tetrisLogic.clearLinesAndCalculateScoreForServer(
-                updatedState.board,
-                updatedState.level,
-              );
-            updatedState.board = clearResult.newBoard;
-            updatedState.linesCleared += clearResult.linesCleared;
-            updatedState.score += clearResult.score;
+            const clearResult = this.tetrisLogic.clearLinesAndCalculateScore(
+              gameState.board,
+              gameState.level,
+            );
+            gameState.board = clearResult.newBoard;
+            gameState.linesCleared += clearResult.linesCleared;
+            gameState.score += clearResult.score;
 
             // 라인 클리어 로그
             if (clearResult.linesCleared > 0) {
@@ -626,44 +567,42 @@ export class GameService {
             }
 
             // 다음 조각 생성
-            updatedState.currentPiece = this.createNewPiece(updatedState);
-            updatedState.nextPiece = this.getNextPiece(updatedState);
+            gameState.currentPiece = this.createNewPiece(gameState);
+            gameState.nextPiece = this.getNextPiece(gameState);
             // 고스트 피스 업데이트
-            updatedState.ghostPiece = this.tetrisLogic.getGhostPiece(
-              updatedState.currentPiece,
-              updatedState.board,
+            gameState.ghostPiece = this.tetrisLogic.getGhostPiece(
+              gameState.currentPiece,
+              gameState.board,
             );
 
             // 레벨 업데이트
-            updatedState.level = this.calculateLevel(updatedState.linesCleared);
+            gameState.level = this.calculateLevel(gameState.linesCleared);
 
             // 레벨이 변경되었으면 타이머 재시작
-            if (updatedState.level !== playerState.level) {
-              this.restartGameTimerWithLevel(playerId, updatedState.level);
+            if (gameState.level !== gameState.level) {
+              this.restartGameTimerWithLevel(playerId, gameState.level);
             }
 
             // 표준 테트리스 게임오버 체크: 새로운 피스가 스폰될 수 없으면 게임오버
-            updatedState.gameOver = this.tetrisLogic.isGameOverForServer(
-              updatedState.board,
-            );
+            gameState.gameOver = this.tetrisLogic.isGameOver(gameState.board);
 
             this.logger.logPieceMovement(playerId, 'hardDrop');
           }
           break;
 
         case 'hold':
-          if (updatedState.canHold) {
-            const temp = updatedState.heldPiece;
-            updatedState.heldPiece = updatedState.currentPiece.type;
-            updatedState.currentPiece = this.tetrisLogic.createTetrisBlock(
-              temp || this.getNextPiece(updatedState),
+          if (gameState.canHold) {
+            const temp = gameState.heldPiece;
+            gameState.heldPiece = gameState.currentPiece.type;
+            gameState.currentPiece = this.tetrisLogic.createTetromino(
+              temp || this.getNextPiece(gameState),
             );
             // 고스트 피스 업데이트
-            updatedState.ghostPiece = this.tetrisLogic.getGhostPiece(
-              updatedState.currentPiece,
-              updatedState.board,
+            gameState.ghostPiece = this.tetrisLogic.getGhostPiece(
+              gameState.currentPiece,
+              gameState.board,
             );
-            updatedState.canHold = false;
+            gameState.canHold = false;
           }
           break;
 
@@ -673,24 +612,20 @@ export class GameService {
       }
 
       // 상태 업데이트
-      await this.updatePlayerGameState(playerId, updatedState);
-
+      if (gameState.gameOver) {
+        await this.leaveGameAuto(gameState.roomId, playerId);
+      } else {
+        await this.updatePlayerGameState(playerId, gameState);
+      }
       // 게임 상태 변경 이벤트 발행
-      await this.publishGameStateUpdate(playerId, updatedState);
+      await this.publishGameStateUpdate(playerId, gameState);
 
       // 룸 상태 변경 이벤트 발행 (룸의 다른 플레이어들에게 알림)
-      if (updatedState.roomId) {
-        await this.publishRoomStateUpdate(updatedState.roomId);
+      if (gameState.roomId) {
+        await this.publishRoomStateUpdate(gameState.roomId);
       }
 
-      this.logger.logGameLogic(playerId, action, {
-        newScore: updatedState.score,
-        newLevel: updatedState.level,
-        newLines: updatedState.linesCleared,
-        gameOver: updatedState.gameOver,
-      });
-
-      return updatedState;
+      return gameState;
     } catch (error) {
       this.logger.logError(error);
       return null;
@@ -706,7 +641,7 @@ export class GameService {
       }
 
       // 현재 조각을 한 칸 아래로 이동
-      const movedPiece = this.tetrisLogic.moveTetrisBlock(
+      const movedPiece = this.tetrisLogic.moveTetromino(
         playerState.currentPiece,
         playerState.board,
         0,
@@ -738,11 +673,10 @@ export class GameService {
         );
 
         // 라인 클리어 및 점수 계산
-        const clearResult =
-          this.tetrisLogic.clearLinesAndCalculateScoreForServer(
-            updatedState.board,
-            updatedState.level,
-          );
+        const clearResult = this.tetrisLogic.clearLinesAndCalculateScore(
+          updatedState.board,
+          updatedState.level,
+        );
         updatedState.board = clearResult.newBoard;
         updatedState.linesCleared += clearResult.linesCleared;
         updatedState.score += clearResult.score;
@@ -765,11 +699,12 @@ export class GameService {
         }
 
         // 표준 테트리스 게임오버 체크: 새로운 피스가 스폰될 수 없으면 게임오버
-        updatedState.gameOver = this.tetrisLogic.isGameOverForServer(
-          updatedState.board,
-        );
-
-        await this.updatePlayerGameState(playerId, updatedState);
+        updatedState.gameOver = this.tetrisLogic.isGameOver(updatedState.board);
+        if (updatedState.gameOver) {
+          await this.leaveGameAuto(updatedState.roomId, playerId);
+        } else {
+          await this.updatePlayerGameState(playerId, updatedState);
+        }
         await this.publishGameStateUpdate(playerId, updatedState);
 
         // 룸 상태 변경 이벤트 발행 (룸의 다른 플레이어들에게 알림)
@@ -788,7 +723,7 @@ export class GameService {
   // 새로운 조각 생성
   private createNewPiece(playerState: PlayerGameState): any {
     const pieceType = this.getNextPiece(playerState);
-    const newPiece = this.tetrisLogic.createTetrisBlock(pieceType);
+    const newPiece = this.tetrisLogic.createTetromino(pieceType);
     return newPiece;
   }
 
@@ -927,9 +862,7 @@ export class GameService {
         );
 
         // 새로운 피스 생성
-        const newPiece = this.tetrisLogic.createTetrisBlock(
-          gameState.nextPiece,
-        );
+        const newPiece = this.tetrisLogic.createTetromino(gameState.nextPiece);
         const nextPiece = this.getNextPiece(gameState);
 
         // 게임 상태 업데이트
@@ -997,7 +930,7 @@ export class GameService {
 
       // 새로운 조각 생성
       const newPieceType = this.getNextPiece(gameState);
-      const newPiece = this.tetrisLogic.createTetrisBlock(newPieceType);
+      const newPiece = this.tetrisLogic.createTetromino(newPieceType);
 
       // 게임 상태 업데이트
       const updatedGameState = {
@@ -1165,7 +1098,9 @@ export class GameService {
    */
   private async cleanupPlayerGameState(playerId: string): Promise<void> {
     try {
+      await this.redisService.del(`player:${playerId}`);
       await this.redisService.del(`player_game:${playerId}`);
+      await this.redisService.deletePlayer(playerId);
       this.logger.log(`플레이어 ${playerId}의 게임 상태 정리 완료`, {
         playerId,
       });
@@ -1461,49 +1396,6 @@ export class GameService {
     await this.redisService.publish(`game:${gameId}`, { event, data });
   }
 
-  // 게임 통계 업데이트
-  async updateGameStats(
-    gameId: string,
-    linesSent: number,
-    linesReceived: number,
-  ): Promise<void> {
-    await this.redisService.updateGameStats(gameId, linesSent, linesReceived);
-  }
-
-  /**
-   * 룸 통계 정보
-   */
-  async getRoomStats(): Promise<{
-    totalRooms: number;
-    waitingRooms: number;
-    playingRooms: number;
-    totalPlayers: number;
-    roomsWithSeeds: number;
-  }> {
-    try {
-      const rooms = await this.getAllRooms();
-
-      const stats = {
-        totalRooms: rooms.length,
-        waitingRooms: rooms.filter((r) => r.status === 'WAITING').length,
-        playingRooms: rooms.filter((r) => r.status === 'PLAYING').length,
-        totalPlayers: rooms.reduce((sum, room) => sum + room.currentPlayers, 0),
-        roomsWithSeeds: rooms.filter((r) => r.roomSeed).length,
-      };
-
-      return stats;
-    } catch (error) {
-      this.logger.log(`룸 통계 조회 실패: ${error.message}`, { error });
-      return {
-        totalRooms: 0,
-        waitingRooms: 0,
-        playingRooms: 0,
-        totalPlayers: 0,
-        roomsWithSeeds: 0,
-      };
-    }
-  }
-
   /**
    * 룸의 전체 게임 상태 조회
    */
@@ -1795,29 +1687,6 @@ export class GameService {
     return attackLines;
   }
 
-  // 게임 밸런싱: 난이도 조절
-  async adjustDifficulty(playerId: string): Promise<void> {
-    const playerState = await this.getPlayerGameState(playerId);
-    if (!playerState) {
-      return;
-    }
-
-    // 플레이어 성과에 따른 난이도 조절
-    const performance = playerState.score / Math.max(playerState.level, 1);
-
-    if (performance > 1000) {
-      // 고수 플레이어: 난이도 증가
-      await this.updatePlayerGameState(playerId, {
-        level: playerState.level + 1,
-      });
-    } else if (performance < 100 && playerState.level > 1) {
-      // 초보 플레이어: 난이도 감소
-      await this.updatePlayerGameState(playerId, {
-        level: Math.max(1, playerState.level - 1),
-      });
-    }
-  }
-
   // 게임 밸런싱: 매칭 시스템
   async findBalancedRoom(
     playerId: string,
@@ -1855,7 +1724,7 @@ export class GameService {
     return Math.max(50, Math.min(1000, baseInterval));
   }
 
-  // 레벨에 따른 타이머 재시작 (최적화됨)
+  // 레벨에 따른 타이머 재시작
   private restartGameTimerWithLevel(playerId: string, level: number): void {
     this.stopGameTimer(playerId);
 

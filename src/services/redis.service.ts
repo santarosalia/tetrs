@@ -151,9 +151,9 @@ export class RedisService implements OnModuleDestroy {
     };
 
     await this.redis.set(`player:${id}`, JSON.stringify(player));
-    if (player.roomId) {
-      await this.redis.sadd(`game:${player.roomId}:players`, id);
-    }
+    // if (player.roomId) {
+    //   await this.redis.sadd(`game:${player.roomId}:players`, id);
+    // }
     await this.redis.sadd('players', id);
     await this.redis.expire(`player:${id}`, 3600); // 1시간 후 만료
     await this.redis.set(`socket:${playerData.socketId}`, id);

@@ -7,6 +7,7 @@ import {
   BOARD_WIDTH,
   BOARD_HEIGHT,
 } from '../constants/tetrominos';
+import { TetrisBlock } from '../interfaces/tetris-map.interface';
 
 @Injectable()
 export class TetrisCoreService {
@@ -52,7 +53,7 @@ export class TetrisCoreService {
     this.bagNumber = 1;
   }
 
-  // 시드 기반 랜덤 생성기 (개선된 버전)
+  // 시드 기반 랜덤 생성기
   private createSeededRandom(seed: number): () => number {
     let state = seed;
     return () => {
@@ -139,13 +140,16 @@ export class TetrisCoreService {
   }
 
   // 테트리스 표준: 테트로미노 생성 (스폰 위치에서 시작)
-  createTetromino(type: TetrominoType): Tetromino {
+  createTetromino(type: TetrominoType): TetrisBlock {
     const spawnPos = TETROMINO_SPAWN_POSITIONS[type];
     return {
       type,
       position: { x: spawnPos.x, y: spawnPos.y },
       rotation: 0,
       shape: TETROMINO_SHAPES[type][0],
+      falling: true,
+      lockDelay: 0,
+      dropTime: 0,
     };
   }
 
@@ -275,17 +279,17 @@ export class TetrisCoreService {
   }
 
   moveTetromino(
-    tetromino: Tetromino,
+    tetrisBlock: TetrisBlock,
     board: number[][],
     offsetX: number,
     offsetY: number,
-  ): Tetromino | null {
-    if (this.isValidPosition(tetromino, board, offsetX, offsetY)) {
+  ): TetrisBlock | null {
+    if (this.isValidPosition(tetrisBlock, board, offsetX, offsetY)) {
       return {
-        ...tetromino,
+        ...tetrisBlock,
         position: {
-          x: tetromino.position.x + offsetX,
-          y: tetromino.position.y + offsetY,
+          x: tetrisBlock.position.x + offsetX,
+          y: tetrisBlock.position.y + offsetY,
         },
       };
     }
@@ -306,24 +310,13 @@ export class TetrisCoreService {
     return droppedTetromino;
   }
 
-  // 테트리스 국룽 점수 시스템
+  // 점수 계산
   calculateScore(linesCleared: number, level: number): number {
     const lineScores = [0, 100, 300, 500, 800]; // Single, Double, Triple, Tetris
     const baseScore = lineScores[linesCleared];
 
     // 레벨에 따른 점수 배율 (레벨 + 1)
     return baseScore * (level + 1);
-  }
-
-  // 테트리스 국룽 하드 드롭 보너스
-  calculateHardDropBonus(level: number, dropDistance: number): number {
-    // 하드 드롭 거리에 따른 보너스 점수 (거리 * 2)
-    return dropDistance * 2;
-  }
-
-  // 테트리스 국룽 레벨 시스템
-  calculateLevel(lines: number): number {
-    return Math.floor(lines / 10);
   }
 
   // 표준 테트리스 게임오버 체크: 새로운 피스가 스폰될 수 없으면 게임오버
@@ -363,38 +356,6 @@ export class TetrisCoreService {
       ...tetromino,
       position: ghostPosition,
     };
-  }
-
-  // 테트리스 국룽 드롭 간격 계산
-  calculateDropInterval(level: number, distanceToBottom: number = 0): number {
-    // 표준 테트리스 속도 공식: (0.8 - ((level - 1) * 0.007))^(level - 1) * 1000
-    // 최소 50ms, 최대 1000ms
-    if (level <= 0) return 1000;
-    if (level >= 29) return 50;
-
-    const baseInterval = Math.pow(0.8 - (level - 1) * 0.007, level - 1) * 1000;
-    let interval = Math.max(50, Math.min(1000, baseInterval));
-
-    // 바닥까지의 거리가 0이면 인터벌을 늘림 (더 천천히 떨어지도록)
-    if (distanceToBottom === 0) {
-      interval = Math.min(1000, interval * 2); // 2배로 늘림
-    }
-
-    return interval;
-  }
-
-  // 바닥까지의 거리 계산
-  calculateDistanceToBottom(piece: Tetromino, board: number[][]): number {
-    if (!piece) return 0;
-
-    let distance = 0;
-
-    // 아래로 이동할 수 있는 최대 거리를 찾음
-    while (this.isValidPosition(piece, board, 0, distance + 1)) {
-      distance++;
-    }
-
-    return distance;
   }
 
   // 라인 클리어 및 점수 계산
