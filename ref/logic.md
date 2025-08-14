@@ -377,132 +377,287 @@ wss.on('connection', (ws) => {
 });
 
 console.log('WebSocket Tetris server on ws://localhost:8080');
+```
 
 // ==============================
 // client.html (정적 파일)
 // ==============================
-/*
+
+```html
 <!doctype html>
 <html>
-<head>
-  <meta charset="utf-8" />
-  <title>Minimal Tetris - Input Replay</title>
-  <style>
-    body { font-family: system-ui, sans-serif; }
-    canvas { border: 1px solid #ccc; image-rendering: pixelated; }
-    .hud { margin: 8px 0; }
-    button { margin-right: 6px; }
-  </style>
-</head>
-<body>
-  <h3>Minimal Tetris (Input Replay)</h3>
-  <div class="hud">
-    <span id="status">connecting...</span>
-  </div>
-  <canvas id="cv" width="200" height="400"></canvas>
-  <script>
-  const W=10, H=20, CELL=20;
-  const SHAPES = {
-    I: [[1,1,1,1]],
-    O: [[1,1],[1,1]],
-    T: [[1,1,1],[0,1,0]],
-    L: [[1,0],[1,0],[1,1]],
-    J: [[0,1],[0,1],[1,1]],
-    S: [[0,1,1],[1,1,0]],
-    Z: [[1,1,0],[0,1,1]],
-  };
-  function rotate(s){ const h=s.length,w=s[0].length; const r=Array.from({length:w},()=>Array(h).fill(0)); for(let y=0;y<h;y++) for(let x=0;x<w;x++) r[x][h-1-y]=s[y][x]; return r; }
-  function emptyBoard(){ return Array.from({length:H},()=>Array(W).fill(0)); }
-  function mulberry32(a){ return function(){ a|=0; a=a+0x6D2B79F5|0; let t=Math.imul(a^a>>>15,1|a); t=t+Math.imul(t^t>>>7,61|t)^t; return ((t^t>>>14)>>>0)/4294967296; } }
-  const PIECES=['I','J','L','O','S','T','Z'];
-  function shuffledBag(rng){ const bag=PIECES.slice(); for(let i=bag.length-1;i>0;i--){ const j=Math.floor(rng()*(i+1)); [bag[i],bag[j]]=[bag[j],bag[i]]; } return bag; }
-
-  const ws = new WebSocket('ws://localhost:8080');
-  const statusEl = document.getElementById('status');
-  const cv = document.getElementById('cv');
-  const ctx = cv.getContext('2d');
-
-  let id=null, seed=0, rate=60, serverTick=0;
-  let rng=null, queue=[];
-  let board=emptyBoard();
-  let piece=null;
-  let alive=true;
-
-  // 로컬 틱(서버에 맞춰 보정)
-  let localTick=0; let tickMs=1000/60; let lastTs=performance.now();
-
-  function spawnNext(){ if(queue.length===0) queue=shuffledBag(rng); const t=queue.shift(); const shape=SHAPES[t].map(r=>r.slice()); return {type:t, shape, x:Math.floor(W/2)-1, y:-2, rot:0}; }
-  function collide(b,p){ const {shape,x,y}=p; for(let py=0;py<shape.length;py++){ for(let px=0;px<shape[0].length;px++){ if(!shape[py][px]) continue; const gx=x+px, gy=y+py; if(gx<0||gx>=W||gy>=H) return true; if(gy>=0 && b[gy][gx]) return true; } } return false; }
-  function lockPiece(b,p){ const {shape,x,y}=p; for(let py=0;py<shape.length;py++) for(let px=0;px<shape[0].length;px++) if(shape[py][px]){ const gy=y+py,gx=x+px; if(gy>=0&&gy<H&&gx>=0&&gx<W) b[gy][gx]=1; } let r=H-1; while(r>=0){ if(b[r].every(v=>v)){ b.splice(r,1); b.unshift(Array(W).fill(0)); } else r--; } }
-
-  function draw(){ ctx.clearRect(0,0,cv.width,cv.height); // 보드
-    for(let y=0;y<H;y++) for(let x=0;x<W;x++){ if(board[y][x]){ ctx.fillRect(x*CELL,y*CELL,CELL-1,CELL-1); } }
-    if(piece){ const s=piece.shape; for(let py=0;py<s.length;py++) for(let px=0;px<s[0].length;px++){ if(s[py][px]) ctx.fillRect((piece.x+px)*CELL,(piece.y+py)*CELL,CELL-1,CELL-1); } }
-  }
-
-  function sendInput(act){ ws.send(JSON.stringify({ t:'i', tick: localTick+1, act })); // 다음 틱에 적용되도록 살짝 미래틱
-    // 로컬에서도 즉시 입력 적용(낙관적 렌더링)
-    applyInputLocal(act);
-  }
-
-  function applyInputLocal(act){ if(!alive||!piece) return; if(act==='L'){ piece.x--; if(collide(board,piece)) piece.x++; }
-    else if(act==='R'){ piece.x++; if(collide(board,piece)) piece.x--; }
-    else if(act==='D'){ piece.y++; if(collide(board,piece)) piece.y--; }
-    else if(act==='HD'){ while(!collide(board,piece)) piece.y++; piece.y--; lockPiece(board,piece); piece=spawnNext(); if(collide(board,piece)) alive=false; }
-    else if(act==='ROT'){ const old=piece.shape; piece.shape=rotate(piece.shape); if(collide(board,piece)) piece.shape=old; }
-  }
-
-  // 키 입력
-  window.addEventListener('keydown',(e)=>{
-    if(e.repeat) return; // 단순화
-    if(e.key==='ArrowLeft') sendInput('L');
-    else if(e.key==='ArrowRight') sendInput('R');
-    else if(e.key==='ArrowUp') sendInput('ROT');
-    else if(e.key==='ArrowDown') sendInput('D');
-    else if(e.key===' '){ e.preventDefault(); sendInput('HD'); }
-  });
-
-  ws.onmessage = (ev)=>{
-    const m = JSON.parse(ev.data);
-    if(m.t==='start'){
-      id=m.id; seed=m.seed; rate=m.rate; serverTick=m.tick; rng=mulberry32(seed); queue=[]; board=emptyBoard(); piece=spawnNext(); alive=true; tickMs=1000/rate; localTick=serverTick; statusEl.textContent=`connected: ${id}, seed=${seed}`;
-    } else if(m.t==='ri'){
-      // 다른 플레이어 입력. 데모는 1인용 시각화라 무시해도 됨. 멀티라면 별도 상태에 동일 적용.
-      // 이 예제에선 콘솔만.
-      console.log('remote input', m);
-    } else if(m.t==='snap'){
-      // 권위 스냅으로 보정
-      if (m.self) {
-        // 간단히 완전 덮어쓰기(현실에선 가벼운 보간/보정 권장)
-        alive = m.self.alive;
-        // 보드/피스 보정
-        board = m.self.board;
-        // 서버는 rot만 보내지만 데모 단순화를 위해 현재 회전 그대로 둠
-        // 실제 구현에서는 rot값을 이용해 shape를 재구성해야 정확
+  <head>
+    <meta charset="utf-8" />
+    <title>Minimal Tetris - Input Replay</title>
+    <style>
+      body {
+        font-family: system-ui, sans-serif;
       }
-      serverTick = m.tick;
-      // 로컬 틱 드리프트 보정(서버틱과 차이가 크면 동기화)
-      if (Math.abs(localTick - serverTick) > 3) localTick = serverTick;
-    }
-  };
+      canvas {
+        border: 1px solid #ccc;
+        image-rendering: pixelated;
+      }
+      .hud {
+        margin: 8px 0;
+      }
+      button {
+        margin-right: 6px;
+      }
+    </style>
+  </head>
+  <body>
+    <h3>Minimal Tetris (Input Replay)</h3>
+    <div class="hud">
+      <span id="status">connecting...</span>
+    </div>
+    <canvas id="cv" width="200" height="400"></canvas>
+    <script>
+      const W = 10,
+        H = 20,
+        CELL = 20;
+      const SHAPES = {
+        I: [[1, 1, 1, 1]],
+        O: [
+          [1, 1],
+          [1, 1],
+        ],
+        T: [
+          [1, 1, 1],
+          [0, 1, 0],
+        ],
+        L: [
+          [1, 0],
+          [1, 0],
+          [1, 1],
+        ],
+        J: [
+          [0, 1],
+          [0, 1],
+          [1, 1],
+        ],
+        S: [
+          [0, 1, 1],
+          [1, 1, 0],
+        ],
+        Z: [
+          [1, 1, 0],
+          [0, 1, 1],
+        ],
+      };
+      function rotate(s) {
+        const h = s.length,
+          w = s[0].length;
+        const r = Array.from({ length: w }, () => Array(h).fill(0));
+        for (let y = 0; y < h; y++)
+          for (let x = 0; x < w; x++) r[x][h - 1 - y] = s[y][x];
+        return r;
+      }
+      function emptyBoard() {
+        return Array.from({ length: H }, () => Array(W).fill(0));
+      }
+      function mulberry32(a) {
+        return function () {
+          a |= 0;
+          a = (a + 0x6d2b79f5) | 0;
+          let t = Math.imul(a ^ (a >>> 15), 1 | a);
+          t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+          return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+        };
+      }
+      const PIECES = ['I', 'J', 'L', 'O', 'S', 'T', 'Z'];
+      function shuffledBag(rng) {
+        const bag = PIECES.slice();
+        for (let i = bag.length - 1; i > 0; i--) {
+          const j = Math.floor(rng() * (i + 1));
+          [bag[i], bag[j]] = [bag[j], bag[i]];
+        }
+        return bag;
+      }
 
-  ws.onopen = ()=> statusEl.textContent='handshaking...';
-  ws.onclose = ()=> statusEl.textContent='disconnected';
+      const ws = new WebSocket('ws://localhost:8080');
+      const statusEl = document.getElementById('status');
+      const cv = document.getElementById('cv');
+      const ctx = cv.getContext('2d');
 
-  // 로컬 게임 루프(서버 틱에 맞춰 동일 로직 실행)
-  function loop(now){
-    const dt = now - lastTs; if (dt >= tickMs) {
-      lastTs = now; localTick++;
-      // 중력
-      if (alive && piece){ piece.y++; if(collide(board,piece)){ piece.y--; lockPiece(board,piece); piece=spawnNext(); if(collide(board,piece)) alive=false; } }
-      draw();
-      statusEl.textContent = `id=${id} tick L/S: ${localTick}/${serverTick}`;
-    }
-    requestAnimationFrame(loop);
-  }
-  requestAnimationFrame(loop);
-  </script>
-</body>
+      let id = null,
+        seed = 0,
+        rate = 60,
+        serverTick = 0;
+      let rng = null,
+        queue = [];
+      let board = emptyBoard();
+      let piece = null;
+      let alive = true;
+
+      // 로컬 틱(서버에 맞춰 보정)
+      let localTick = 0;
+      let tickMs = 1000 / 60;
+      let lastTs = performance.now();
+
+      function spawnNext() {
+        if (queue.length === 0) queue = shuffledBag(rng);
+        const t = queue.shift();
+        const shape = SHAPES[t].map((r) => r.slice());
+        return { type: t, shape, x: Math.floor(W / 2) - 1, y: -2, rot: 0 };
+      }
+      function collide(b, p) {
+        const { shape, x, y } = p;
+        for (let py = 0; py < shape.length; py++) {
+          for (let px = 0; px < shape[0].length; px++) {
+            if (!shape[py][px]) continue;
+            const gx = x + px,
+              gy = y + py;
+            if (gx < 0 || gx >= W || gy >= H) return true;
+            if (gy >= 0 && b[gy][gx]) return true;
+          }
+        }
+        return false;
+      }
+      function lockPiece(b, p) {
+        const { shape, x, y } = p;
+        for (let py = 0; py < shape.length; py++)
+          for (let px = 0; px < shape[0].length; px++)
+            if (shape[py][px]) {
+              const gy = y + py,
+                gx = x + px;
+              if (gy >= 0 && gy < H && gx >= 0 && gx < W) b[gy][gx] = 1;
+            }
+        let r = H - 1;
+        while (r >= 0) {
+          if (b[r].every((v) => v)) {
+            b.splice(r, 1);
+            b.unshift(Array(W).fill(0));
+          } else r--;
+        }
+      }
+
+      function draw() {
+        ctx.clearRect(0, 0, cv.width, cv.height); // 보드
+        for (let y = 0; y < H; y++)
+          for (let x = 0; x < W; x++) {
+            if (board[y][x]) {
+              ctx.fillRect(x * CELL, y * CELL, CELL - 1, CELL - 1);
+            }
+          }
+        if (piece) {
+          const s = piece.shape;
+          for (let py = 0; py < s.length; py++)
+            for (let px = 0; px < s[0].length; px++) {
+              if (s[py][px])
+                ctx.fillRect(
+                  (piece.x + px) * CELL,
+                  (piece.y + py) * CELL,
+                  CELL - 1,
+                  CELL - 1,
+                );
+            }
+        }
+      }
+
+      function sendInput(act) {
+        ws.send(JSON.stringify({ t: 'i', tick: localTick + 1, act })); // 다음 틱에 적용되도록 살짝 미래틱
+        // 로컬에서도 즉시 입력 적용(낙관적 렌더링)
+        applyInputLocal(act);
+      }
+
+      function applyInputLocal(act) {
+        if (!alive || !piece) return;
+        if (act === 'L') {
+          piece.x--;
+          if (collide(board, piece)) piece.x++;
+        } else if (act === 'R') {
+          piece.x++;
+          if (collide(board, piece)) piece.x--;
+        } else if (act === 'D') {
+          piece.y++;
+          if (collide(board, piece)) piece.y--;
+        } else if (act === 'HD') {
+          while (!collide(board, piece)) piece.y++;
+          piece.y--;
+          lockPiece(board, piece);
+          piece = spawnNext();
+          if (collide(board, piece)) alive = false;
+        } else if (act === 'ROT') {
+          const old = piece.shape;
+          piece.shape = rotate(piece.shape);
+          if (collide(board, piece)) piece.shape = old;
+        }
+      }
+
+      // 키 입력
+      window.addEventListener('keydown', (e) => {
+        if (e.repeat) return; // 단순화
+        if (e.key === 'ArrowLeft') sendInput('L');
+        else if (e.key === 'ArrowRight') sendInput('R');
+        else if (e.key === 'ArrowUp') sendInput('ROT');
+        else if (e.key === 'ArrowDown') sendInput('D');
+        else if (e.key === ' ') {
+          e.preventDefault();
+          sendInput('HD');
+        }
+      });
+
+      ws.onmessage = (ev) => {
+        const m = JSON.parse(ev.data);
+        if (m.t === 'start') {
+          id = m.id;
+          seed = m.seed;
+          rate = m.rate;
+          serverTick = m.tick;
+          rng = mulberry32(seed);
+          queue = [];
+          board = emptyBoard();
+          piece = spawnNext();
+          alive = true;
+          tickMs = 1000 / rate;
+          localTick = serverTick;
+          statusEl.textContent = `connected: ${id}, seed=${seed}`;
+        } else if (m.t === 'ri') {
+          // 다른 플레이어 입력. 데모는 1인용 시각화라 무시해도 됨. 멀티라면 별도 상태에 동일 적용.
+          // 이 예제에선 콘솔만.
+          console.log('remote input', m);
+        } else if (m.t === 'snap') {
+          // 권위 스냅으로 보정
+          if (m.self) {
+            // 간단히 완전 덮어쓰기(현실에선 가벼운 보간/보정 권장)
+            alive = m.self.alive;
+            // 보드/피스 보정
+            board = m.self.board;
+            // 서버는 rot만 보내지만 데모 단순화를 위해 현재 회전 그대로 둠
+            // 실제 구현에서는 rot값을 이용해 shape를 재구성해야 정확
+          }
+          serverTick = m.tick;
+          // 로컬 틱 드리프트 보정(서버틱과 차이가 크면 동기화)
+          if (Math.abs(localTick - serverTick) > 3) localTick = serverTick;
+        }
+      };
+
+      ws.onopen = () => (statusEl.textContent = 'handshaking...');
+      ws.onclose = () => (statusEl.textContent = 'disconnected');
+
+      // 로컬 게임 루프(서버 틱에 맞춰 동일 로직 실행)
+      function loop(now) {
+        const dt = now - lastTs;
+        if (dt >= tickMs) {
+          lastTs = now;
+          localTick++;
+          // 중력
+          if (alive && piece) {
+            piece.y++;
+            if (collide(board, piece)) {
+              piece.y--;
+              lockPiece(board, piece);
+              piece = spawnNext();
+              if (collide(board, piece)) alive = false;
+            }
+          }
+          draw();
+          statusEl.textContent = `id=${id} tick L/S: ${localTick}/${serverTick}`;
+        }
+        requestAnimationFrame(loop);
+      }
+      requestAnimationFrame(loop);
+    </script>
+  </body>
 </html>
-*/
 ```
